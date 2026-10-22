@@ -23,6 +23,14 @@ Claude Code hooks in `~/.claude/settings.json` write one word to
 or `idle`).
 Seal Pet checks that file every 400 ms and switches animation when it changes.
 
+## System requirements
+
+- 64-bit Windows 10 or later.
+- No additional runtime is required to run the downloaded release executable.
+- Claude Code is optional; it is only needed if you want Seal Pet to display
+  Claude Code's status automatically.
+- Building from source requires the stable Rust toolchain.
+
 ## Build and run
 
 ```bash
