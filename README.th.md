@@ -59,13 +59,19 @@ Hook ทำงานเฉพาะ Claude Code ที่รันบนเค�
 
 ## ติดตั้งบน Windows
 
-ต้องใช้ Windows 10 ขึ้นไปแบบ 64 บิต ไม่ต้องติดตั้งโปรแกรมอื่นเพิ่ม
+ต้องใช้ Windows 10 ขึ้นไปแบบ 64 บิต ตอนนี้ยังไม่มีไฟล์สำเร็จรูปให้ดาวน์โหลด
+จึงต้อง build เอง (ประมาณ 1 นาที) ไฟล์ exe ที่ได้ไม่ต้องติดตั้งโปรแกรมอื่นเพิ่ม
 Claude Code ไม่บังคับ (ถ้าไม่มี แมวน้ำก็ยังรันได้ และสั่งเองด้วย `--set` ได้)
 
-1. **ดาวน์โหลด** ไฟล์ `ai-mascot-hook.exe` จาก
-   [GitHub Releases](https://github.com/thanachaiakt/ai-mascot-status/releases)
-   วางไว้ในโฟลเดอร์ที่จะเก็บถาวร และ **path ต้องไม่มีช่องว่าง** เช่น
-   `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`
+1. **Build** ติดตั้ง Rust จาก <https://rustup.rs> (ข้ามได้ถ้าสั่ง `cargo --version` ได้อยู่แล้ว)
+   แล้วเปิด PowerShell ในโฟลเดอร์โปรเจกต์ และรัน
+
+   ```powershell
+   cargo build --release
+   ```
+
+   จากนั้น copy `target\release\ai-mascot-hook.exe` ไปวางในโฟลเดอร์ที่จะเก็บถาวร
+   และ **path ต้องไม่มีช่องว่าง** เช่น `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`
    ไม่ควรวางไว้ใน Downloads เพราะ hook จะเรียกไฟล์จาก path นี้ตลอด ถ้าย้ายทีหลัง hook จะใช้ไม่ได้
 2. **เปิดแมวน้ำ** ดับเบิลคลิก `ai-mascot-hook.exe` แมวน้ำจะขึ้นบนหน้าจอ
 3. **ติดตั้ง hook** เปิด PowerShell แล้วรัน

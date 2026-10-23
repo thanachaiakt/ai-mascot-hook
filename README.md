@@ -57,14 +57,20 @@ Hooks only fire for Claude Code running on this computer. Nothing is sent over t
 
 ## Install on Windows
 
-Needs 64-bit Windows 10 or later. No runtime or installer is required. Claude Code is
-optional (without it the seal still runs, and you can drive it by hand with `--set`).
+Needs 64-bit Windows 10 or later. There is no prebuilt download yet, so build it once
+(about a minute). The built exe needs no runtime or installer. Claude Code is optional
+(without it the seal still runs, and you can drive it by hand with `--set`).
 
-1. **Download.** Get `ai-mascot-hook.exe` from the
-   [GitHub Releases](https://github.com/thanachaiakt/ai-mascot-status/releases) page.
-   Save it in a folder you will keep, with **no spaces in the path**, for example
-   `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`. Not Downloads: the hooks run the exe at
-   exactly this path, and moving it later breaks them.
+1. **Build.** Install Rust from <https://rustup.rs> (skip if `cargo --version` already
+   works), then in PowerShell, inside the project folder:
+
+   ```powershell
+   cargo build --release
+   ```
+
+   Copy `target\release\ai-mascot-hook.exe` to a folder you will keep, with **no spaces in
+   the path**, for example `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`. Not Downloads: the
+   hooks run the exe at exactly this path, and moving it later breaks them.
 2. **Start the seal.** Double-click the exe. The seal appears on the screen.
 3. **Install the hooks.** Open PowerShell and run:
 
