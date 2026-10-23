@@ -1,6 +1,6 @@
 # How the code fits together
 
-[ภาษาไทย](architecture.th.md)
+[ภาษาไทย](../th/architecture.md)
 
 Seal Pet is one Rust binary with two jobs:
 
@@ -48,6 +48,8 @@ flowchart TB
         store["store.rs<br/>data folder, state file, placement"]
         status["status.rs<br/>words, colors, auto hide,<br/>state parsing"]
         bubble["bubble.rs<br/>bubble layout, drawing, animation"]
+        menu["menu.rs<br/>icon menu layout, drawing, animation"]
+        editor["editor.rs<br/>status editor layout, painting, clicks"]
         hooks["hooks.rs<br/>~/.claude/settings.json"]
         anim["anim.rs<br/>easing"]
         gfx["gfx/mod.rs<br/>Canvas, shapes, Strip"]
@@ -60,12 +62,14 @@ flowchart TB
 
     subgraph win["Windows: win/"]
         wmod["win/mod.rs<br/>App, seal window, pointer,<br/>timers, message loop"]
-        wmenu["win/menu.rs<br/>icon menu"]
-        wed["win/editor.rs<br/>status editor"]
+        wmenu["win/menu.rs<br/>icon menu window"]
+        wed["win/editor.rs<br/>editor window, EDIT boxes,<br/>color dialog"]
     end
 
     subgraph mac["macOS: mac/"]
-        mmod["mac/mod.rs<br/>App, NSPanels, SealView,<br/>NSMenu, NSTimer"]
+        mmod["mac/mod.rs<br/>App, NSPanels, SealView,<br/>NSTimer"]
+        mmenu["mac/menu.rs<br/>icon menu panel"]
+        med["mac/editor.rs<br/>editor panel, NSTextFields,<br/>NSColorPanel"]
     end
 
     main --> hooks
@@ -76,6 +80,10 @@ flowchart TB
 
     wmod --> wmenu
     wmod --> wed
+    mmod --> mmenu
+    mmod --> med
+    wmenu & mmenu --> menu
+    wed & med --> editor
     wmod & mmod --> bubble
     wmod & mmod --> seal
     wmod & mmod --> store
@@ -84,6 +92,8 @@ flowchart TB
 
     bubble --> anim
     bubble --> gfx
+    menu & editor --> gfx
+    editor --> status
     bubble --> seal
     store --> seal
     store --> status
@@ -139,7 +149,7 @@ flowchart LR
     t5 --> drag["start drag"]
     mouse --> press["press_down / press_move / press_up"]
     press -- "hold or move > 4 px" --> drag --> mv["move_to + save placement"]
-    press -- "click" --> menu["menu<br/>(icon menu / NSMenu)"]
+    press -- "click" --> menu["icon menu"]
     press -- "resize mode" --> rs["set_height + save"]
     menu --> act["resize / show status /<br/>edit status / quit"]
 ```
@@ -152,9 +162,10 @@ On Windows each source is a Win32 timer (`TIMER_FRAME`, `TIMER_POLL`, `TIMER_BUB
 
 ```mermaid
 flowchart LR
-    png["assets/*.png<br/>frame strip (palette PNG)"] -- "Strip::decode" --> strip["Strip<br/>palette indices"]
+    png["assets/*.png<br/>frame strip (palette PNG)"] -- "build.rs<br/>one PNG per frame" --> frames["$OUT_DIR/*.frames<br/>(in the exe)"]
+    frames -- "Strip::decode" --> strip["Strip<br/>compressed frames"]
     strip -- "Strip::zoomed<br/>(working: 1.15x, frames grow)" --> strip2["Strip + pad"]
-    strip2 -- "Strip::draw<br/>scale to seal size" --> mc["Canvas mc"]
+    strip2 -- "Strip::draw<br/>unpack one frame, scale to seal size" --> mc["Canvas mc"]
     mc -- "resize mode:<br/>frame + handle" --> mc
     mc -- "Windows: UpdateLayeredWindow<br/>macOS: CGImage on the layer" --> win["seal window<br/>(box + transparent overhang)"]
 ```
@@ -194,7 +205,7 @@ flowchart LR
     state -- "read" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y height show_status")]
     placement -- "read_placement at start" --> app2
-    editor2["win/editor.rs Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>words, color.&lt;state&gt;, autohide")]
+    editor2["editor Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>words, color.&lt;state&gt;, autohide")]
     statustxt -- "StatusText::load" --> app2
 ```
 
@@ -209,6 +220,7 @@ All of these files except `settings.json` live in the data folder (`store::data_
 | A state's animation, speed or size | `seal.rs` (`Clip`, `clip_for`) |
 | The bubble's look or motion | `bubble.rs` |
 | Default words and colors | `status.rs` (`STATES`, `DEFAULT_COLOR`) |
-| Windows menu / editor | `win/menu.rs` / `win/editor.rs` |
-| Mac windows, menu, input | `mac/mod.rs` |
+| The icon menu's or the editor's look | `menu.rs` / `editor.rs` |
+| Windows menu / editor windows | `win/menu.rs` / `win/editor.rs` |
+| Mac windows and input | `mac/mod.rs`, `mac/menu.rs`, `mac/editor.rs` |
 | Text rendering or putting pixels on screen | `gfx/win.rs`, `gfx/mac.rs` |

@@ -7,7 +7,7 @@ use windows_sys::Win32::Foundation::*;
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-use super::{Canvas, Rgba};
+use super::{Align, Canvas, Rgba};
 
 pub type Font = HFONT;
 pub type Rect = RECT;
@@ -107,16 +107,21 @@ impl Canvas {
         }
     }
 
-    /// Draw `text` into `rect` with DrawText `flags`, leaving alpha as it is: for surfaces
-    /// shown with `paint_to`, which ignores alpha.
-    pub fn draw_text(&mut self, font: HFONT, text: &str, rect: RECT, color: Rgba, flags: u32) {
+    /// Draw `text` on one line in `rect`, placed by `align`, leaving alpha as it is: for
+    /// surfaces shown with `paint_to`, which ignores alpha.
+    pub fn label(&mut self, font: HFONT, text: &str, rect: RECT, color: Rgba, align: Align) {
         let wide = wide(text);
         let mut r = rect;
+        let across = match align {
+            Align::Left => DT_LEFT,
+            Align::Center => DT_CENTER,
+            Align::Right => DT_RIGHT,
+        };
         unsafe {
             SelectObject(self.sys.dc, font);
             SetBkMode(self.sys.dc, TRANSPARENT as _);
             SetTextColor(self.sys.dc, color.0 as u32 | (color.1 as u32) << 8 | (color.2 as u32) << 16);
-            DrawTextW(self.sys.dc, wide.as_ptr(), -1, &mut r, flags | DT_SINGLELINE | DT_NOPREFIX);
+            DrawTextW(self.sys.dc, wide.as_ptr(), -1, &mut r, across | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
             GdiFlush();
         }
     }

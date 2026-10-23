@@ -108,11 +108,11 @@ Only one seal runs at a time. To start it with Windows, put a shortcut to
 
 ## macOS
 
-Phase 1 of the Mac version: the seal, its animations, the status bubble, dragging,
-resizing and the hooks work as on Windows. A click opens a native menu (**Resize**,
-**Show status**, **Quit Seal Pet**); the status editor is not on the Mac yet, so the
-bubble's words, colors and auto hide come from
-`~/Library/Application Support/seal-pet/status.txt` (the same format as on Windows).
+The Mac version works as on Windows: the seal, its animations, the status bubble,
+dragging, resizing, the icon menu, the status editor and the hooks. The editor's **+**
+opens the macOS color panel. Settings are kept in
+`~/Library/Application Support/seal-pet/` (`status.txt` has the same format as on
+Windows, so it can be copied across).
 
 ```bash
 cargo build --release
@@ -120,7 +120,8 @@ cargo build --release
 ./target/release/seal-pet &
 ```
 
-Then restart Claude Code. The seal has no Dock icon; quit it from its menu. Keep the
+Then restart Claude Code. The seal has no Dock icon; quit it with the menu's
+**Close** button. Keep the
 binary where it is (or copy it somewhere permanent and run `--install-hooks` from
 there), since the hooks run it by path.
 
@@ -179,4 +180,5 @@ on `PATH`. Re-run them after changing the art, then rebuild.
 
 For the full behavior, input format, and persistence contract, see
 [SPEC.md](SPEC.md). For how the code fits together (with diagrams), see
-[docs/architecture.md](docs/architecture.md).
+[docs/en/architecture.md](docs/en/architecture.md). For token use, hook timing, CPU and memory,
+see [docs/en/technical.md](docs/en/technical.md).

@@ -1,31 +1,48 @@
-//! The Mac seal: borderless, transparent, always-on-top panels (the seal, its bubble and the
-//! size readout) that show the shared drawings, an accessory app with no Dock icon, and a
-//! native menu for resizing, showing the bubble and quitting.
+//! The Mac seal: borderless, transparent, always-on-top panels (the seal, its bubble, the
+//! size readout, the icon menu and the status editor) that show the shared drawings, in an
+//! accessory app with no Dock icon.
 //!
 //! Positions and sizes are kept in pixels with the origin at the top left of the main
 //! screen, as on Windows, so the shared code and the placement file work the same; they are
 //! turned into AppKit's points (origin at the bottom left) only where a window is placed.
+
+mod editor;
+mod menu;
 
 use std::cell::RefCell;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::time::{Instant, SystemTime};
 
 use block2::RcBlock;
+use editor::*;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2::{define_class, msg_send, sel, MainThreadMarker, MainThreadOnly};
+use objc2::{define_class, msg_send, AllocAnyThread, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSControlStateValueOff, NSControlStateValueOn, NSEvent, NSMenu, NSMenuItem, NSPanel,
-    NSScreen, NSStatusWindowLevel, NSView, NSWindowCollectionBehavior, NSWindowStyleMask,
+    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSEvent, NSPanel, NSResponder, NSScreen, NSStatusWindowLevel, NSView, NSWindow,
+    NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-use objc2_foundation::{NSObject, NSObjectProtocol, NSRunLoop, NSRunLoopCommonModes, NSString, NSTimer};
+use objc2_foundation::{NSObject, NSRunLoop, NSRunLoopCommonModes, NSTimer};
 
 use crate::bubble::*;
+use crate::editor::*;
 use crate::gfx::*;
+use crate::menu::*;
 use crate::seal::*;
 use crate::status::*;
 use crate::store::*;
+
+extern "C" {
+    /// libSystem: return free memory held by a malloc zone (all zones for null) to the system.
+    fn malloc_zone_pressure_relief(zone: *mut std::ffi::c_void, goal: usize) -> usize;
+}
+
+/// Decoding a clip leaves megabytes of freed buffers that the Mac's malloc keeps for reuse.
+/// The next decode is a state change away, so give them back to the system.
+fn trim_heap() {
+    unsafe { malloc_zone_pressure_relief(std::ptr::null_mut(), 0) };
+}
 
 /// What a press on the seal is turning into.
 enum Press {
@@ -42,7 +59,14 @@ struct App {
     mascot: Retained<NSPanel>,
     bubble_win: Retained<NSPanel>,
     tag_win: Retained<NSPanel>,
-    menu_target: Retained<MenuTarget>,
+    menu_win: Retained<NSPanel>,
+    menu: Menu,
+    /// the menu has had the keyboard since it opened: losing it closes the menu
+    menu_key: bool,
+    editor: Option<Editor>,
+    editor_fonts: EditorFonts,
+    /// takes the editor's text-box and color-panel messages
+    editor_target: Retained<EditorTarget>,
     /// the seal as drawn this frame
     mc: Canvas,
     bubble: Bubble,
@@ -52,6 +76,7 @@ struct App {
     y: i32,
     height: i32,
     strip: Strip,
+    /// the animation playing: the state's, or while editing, the edited state's
     clip: &'static Clip,
     state: String,
     stamp: Option<SystemTime>,
@@ -103,16 +128,13 @@ define_class!(
         }
 
         #[unsafe(method(mouseUp:))]
-        fn mouse_up(&self, event: &NSEvent) {
-            // the menu runs its own event loop: open it with the app free
-            if with(|app| app.press_up()) == Some(true) {
-                self.show_menu(event);
-            }
+        fn mouse_up(&self, _event: &NSEvent) {
+            with(|app| app.press_up());
         }
 
         #[unsafe(method(rightMouseUp:))]
-        fn right_mouse_up(&self, event: &NSEvent) {
-            self.show_menu(event);
+        fn right_mouse_up(&self, _event: &NSEvent) {
+            with(|app| app.toggle_menu());
         }
 
         #[unsafe(method(scrollWheel:))]
@@ -128,67 +150,39 @@ impl SealView {
         let frame = CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(1.0, 1.0));
         unsafe { msg_send![SealView::alloc(mtm), initWithFrame: frame] }
     }
-
-    /// The seal's menu: Resize, Show/Hide status, Quit.
-    fn show_menu(&self, event: &NSEvent) {
-        let Some((target, show_status)) = with(|app| (app.menu_target.clone(), app.show_status)) else { return };
-        let mtm = self.mtm();
-        let menu = NSMenu::new(mtm);
-        let item = |title: &str, action| unsafe {
-            let item = NSMenuItem::initWithTitle_action_keyEquivalent(NSMenuItem::alloc(mtm), &NSString::from_str(title), Some(action), &NSString::from_str(""));
-            item.setTarget(Some(&target));
-            item
-        };
-        menu.addItem(&item("Resize", sel!(resize:)));
-        let status = item("Show status", sel!(toggleStatus:));
-        status.setState(if show_status { NSControlStateValueOn } else { NSControlStateValueOff });
-        menu.addItem(&status);
-        menu.addItem(&NSMenuItem::separatorItem(mtm));
-        menu.addItem(&item("Quit Seal Pet", sel!(quit:)));
-        let at = self.convertPoint_fromView(event.locationInWindow(), None);
-        menu.popUpMenuPositioningItem_atLocation_inView(None, at, Some(self));
-    }
 }
 
 define_class!(
-    // SAFETY: NSObject has no subclassing requirements, and MenuTarget has no Drop.
-    #[unsafe(super(NSObject))]
+    // SAFETY: NSPanel has no subclassing requirements, and KeyPanel has no Drop.
+    #[unsafe(super(NSPanel, NSWindow, NSResponder, NSObject))]
     #[thread_kind = MainThreadOnly]
-    #[name = "SealPetMenuTarget"]
-    struct MenuTarget;
+    #[name = "SealPetKeyPanel"]
+    /// A borderless panel that can still take the keyboard, for the menu's Escape and the
+    /// editor's text boxes.
+    struct KeyPanel;
 
-    impl MenuTarget {
-        #[unsafe(method(resize:))]
-        fn resize(&self, _sender: Option<&AnyObject>) {
-            with(|app| app.set_resize_mode(true));
-        }
-
-        #[unsafe(method(toggleStatus:))]
-        fn toggle_status(&self, _sender: Option<&AnyObject>) {
-            with(|app| app.toggle_status());
-        }
-
-        #[unsafe(method(quit:))]
-        fn quit(&self, _sender: Option<&AnyObject>) {
-            NSApplication::sharedApplication(self.mtm()).terminate(None);
+    impl KeyPanel {
+        #[unsafe(method(canBecomeKeyWindow))]
+        fn can_become_key_window(&self) -> bool {
+            true
         }
     }
-
-    unsafe impl NSObjectProtocol for MenuTarget {}
 );
 
-impl MenuTarget {
-    fn new(mtm: MainThreadMarker) -> Retained<MenuTarget> {
-        unsafe { msg_send![MenuTarget::alloc(mtm), init] }
-    }
-}
-
-/// A borderless, transparent panel above other windows, on every Space, that never takes
-/// the focus. `clicks` false lets the pointer through to what is underneath.
-fn panel(mtm: MainThreadMarker, content: &NSView, clicks: bool) -> Retained<NSPanel> {
+/// A borderless, transparent panel above other windows, on every Space, that never makes
+/// the app active. `clicks` false lets the pointer through to what is underneath; `key`
+/// lets it take the keyboard.
+fn panel(mtm: MainThreadMarker, content: &NSView, clicks: bool, key: bool) -> Retained<NSPanel> {
     let frame = CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(1.0, 1.0));
     let style = NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel;
-    let panel = NSPanel::initWithContentRect_styleMask_backing_defer(NSPanel::alloc(mtm), frame, style, NSBackingStoreType::Buffered, false);
+    let panel = if key {
+        let panel: Retained<KeyPanel> = unsafe { msg_send![KeyPanel::alloc(mtm), initWithContentRect: frame, styleMask: style, backing: NSBackingStoreType::Buffered, defer: false] };
+        Retained::into_super(panel)
+    } else {
+        NSPanel::initWithContentRect_styleMask_backing_defer(NSPanel::alloc(mtm), frame, style, NSBackingStoreType::Buffered, false)
+    };
+    // the app keeps its own reference to each panel
+    unsafe { panel.setReleasedWhenClosed(false) };
     panel.setOpaque(false);
     panel.setBackgroundColor(Some(&NSColor::clearColor()));
     panel.setHasShadow(false);
@@ -219,17 +213,29 @@ fn present(mtm: MainThreadMarker, win: &NSPanel, canvas: &Canvas, x: i32, y: i32
     let (w, h) = (canvas.w as f64 / s, canvas.h as f64 / s);
     let origin = CGPoint::new(x as f64 / s, main_height(mtm) - y as f64 / s - h);
     win.setFrame_display(CGRect::new(origin, CGSize::new(w, h)), false);
-    if let (Some(view), Some(image)) = (win.contentView(), canvas.image()) {
-        if let Some(layer) = view.layer() {
-            layer.setContentsScale(s);
-            let image: &AnyObject = unsafe { &*(&*image as *const _ as *const AnyObject) };
-            unsafe { layer.setContents(Some(image)) };
-        }
-    }
+    show_canvas(win, canvas, scale);
     win.setAlphaValue(alpha as f64 / 255.0);
     if !win.isVisible() {
         win.orderFrontRegardless();
     }
+}
+
+/// Show `canvas` as `win`'s content, leaving the window where it is.
+fn show_canvas(win: &NSPanel, canvas: &Canvas, scale: f32) {
+    if let (Some(view), Some(image)) = (win.contentView(), canvas.image()) {
+        if let Some(layer) = view.layer() {
+            layer.setContentsScale(scale as f64);
+            let image: &AnyObject = unsafe { &*(&*image as *const _ as *const AnyObject) };
+            unsafe { layer.setContents(Some(image)) };
+        }
+    }
+}
+
+/// A point in `view`, from AppKit's points up from its bottom left to pixels down from its
+/// top left.
+fn view_pixels(view: &NSView, at: CGPoint, scale: f32) -> (i32, i32) {
+    let s = scale as f64;
+    ((at.x * s) as i32, ((view.bounds().size.height - at.y) * s) as i32)
 }
 
 impl App {
@@ -297,14 +303,25 @@ impl App {
         present(self.mtm, &self.mascot, &self.mc, self.x - l, self.y - t, alpha, self.scale);
     }
 
-    /// Play the state's animation, if it is not playing already.
+    /// The state the seal shows: the one being edited while the editor is open, so it
+    /// can be previewed, otherwise the one the hooks set.
+    fn shown_state(&self) -> &str {
+        match &self.editor {
+            Some(e) => STATES[e.draft.selected].0,
+            None => &self.state,
+        }
+    }
+
+    /// Play the shown state's animation, if it is not playing already.
     fn sync_clip(&mut self) {
-        let clip = clip_for(&self.state);
+        let clip = clip_for(self.shown_state());
         if std::ptr::eq(clip, self.clip) {
             return;
         }
         self.clip = clip;
+        self.strip.release();
         self.strip = clip.strip();
+        trim_heap();
         self.frame = 0;
         self.draw_mascot();
     }
@@ -362,9 +379,14 @@ impl App {
         }
         if let Press::Pending { grab, since, .. } = self.press {
             if now.duration_since(since).as_millis() as u32 >= HOLD_MS {
-                self.press = Press::Drag { grab };
-                self.draw_mascot();
+                self.start_drag(grab);
             }
+        }
+        if self.menu.open {
+            self.menu_tick();
+        }
+        if self.editor.is_some() {
+            self.editor_tick();
         }
         if self.hide_at.is_some_and(|at| now >= at) {
             self.hide_at = None;
@@ -394,12 +416,18 @@ impl App {
         }
     }
 
+    fn start_drag(&mut self, grab: (i32, i32)) {
+        self.press = Press::Drag { grab };
+        self.close_menu();
+        self.draw_mascot();
+    }
+
     fn press_move(&mut self) {
         let p = self.cursor();
         match self.press {
             Press::Pending { at, grab, .. } => {
                 if (p.0 - at.0).abs() > DRAG_SLOP || (p.1 - at.1).abs() > DRAG_SLOP {
-                    self.press = Press::Drag { grab };
+                    self.start_drag(grab);
                     self.move_to(p.0 - grab.0, p.1 - grab.1);
                 }
             }
@@ -413,27 +441,22 @@ impl App {
         }
     }
 
-    /// The press ends. True when it was a click that should open the menu.
-    fn press_up(&mut self) -> bool {
+    /// The press ends: a click leaves resizing, or else opens or closes the menu.
+    fn press_up(&mut self) {
         match std::mem::replace(&mut self.press, Press::None) {
             Press::Pending { .. } => {
                 if self.resize_mode {
                     self.set_resize_mode(false);
-                    false
                 } else {
-                    true
+                    self.toggle_menu();
                 }
             }
             Press::Drag { .. } => {
                 self.draw_mascot();
                 self.save();
-                false
             }
-            Press::Resize { .. } => {
-                self.save();
-                false
-            }
-            Press::None => false,
+            Press::Resize { .. } => self.save(),
+            Press::None => {}
         }
     }
 
@@ -469,7 +492,7 @@ impl App {
     fn update_bubble(&mut self) {
         let (w, h) = self.size();
         let seal = (self.x, self.y, w, h);
-        let tag = if self.resize_mode {
+        let tag = if self.resize_mode && !self.menu.open {
             let work = self.work_area(self.x + w / 2, self.y + h);
             let ((x, y), bounds) = self.bubble.size_tag(self.height, seal, work, self.scale);
             present(self.mtm, &self.tag_win, &self.bubble.tag, x, y, 255, self.scale);
@@ -478,18 +501,28 @@ impl App {
             self.tag_win.orderOut(None);
             None
         };
-        let visible = (self.show_status && !self.auto_hidden) || self.resize_mode;
+        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some()) && !self.menu.open;
         if !visible {
             self.bubble.hide();
             self.bubble_frame();
             return;
         }
-        let (text, dot, key) = if self.resize_mode {
-            ("Scroll, Drag or Click".to_string(), None, "resize".to_string())
+        let key = if self.resize_mode { "resize".to_string() } else { self.shown_state().to_string() };
+        let (text, dot) = if self.resize_mode {
+            ("Scroll, Drag or Click".to_string(), None)
+        } else if let Some(e) = &self.editor {
+            // while editing, the bubble previews the state being edited, as typed and colored
+            let i = e.draft.selected;
+            let typed = e.fields[i].stringValue().to_string();
+            (if typed.trim().is_empty() { STATES[i].2.to_string() } else { typed }, Some(accent(STATES[i].0)))
         } else {
-            (self.status.text(&self.state).to_string(), Some(accent(&self.state)), self.state.clone())
+            (self.status.text(&self.state).to_string(), Some(accent(&self.state)))
         };
-        let content = Content { text: &text, dot, ink: self.status.color(&self.state), key: &key };
+        let ink = match &self.editor {
+            Some(e) => e.draft.colors[e.draft.selected],
+            None => self.status.color(&self.state),
+        };
+        let content = Content { text: &text, dot, ink, key: &key };
         let work = self.work_area(self.x + w / 2, self.y);
         self.bubble.show(&content, seal, work, tag, self.scale);
         self.bubble_frame();
@@ -533,9 +566,10 @@ pub fn run() {
     let scale = NSScreen::mainScreen(mtm).map(|s| s.backingScaleFactor()).unwrap_or(1.0) as f32;
     let default_h = ((140.0 * scale).round() as i32).clamp(MIN_H, MAX_H);
     let view = SealView::new(mtm);
-    let mascot = panel(mtm, &view, true);
-    let bubble_win = panel(mtm, &plain_view(mtm), false);
-    let tag_win = panel(mtm, &plain_view(mtm), false);
+    let mascot = panel(mtm, &view, true, false);
+    let bubble_win = panel(mtm, &plain_view(mtm), false, false);
+    let tag_win = panel(mtm, &plain_view(mtm), false, false);
+    let menu_win = panel(mtm, &menu::MenuView::new(mtm), true, true);
 
     let (state, stamp) = read_state();
     // no word yet: forget the stamp so the first poll looks again
@@ -547,9 +581,22 @@ pub fn run() {
         mascot,
         bubble_win,
         tag_win,
-        menu_target: MenuTarget::new(mtm),
+        menu_win,
+        menu: Menu::new(font(14.0 * scale, 700), scale),
+        menu_key: false,
+        editor: None,
+        editor_fonts: EditorFonts {
+            title: font(17.0 * scale, 600),
+            label: font(14.0 * scale, 400),
+            heading: font(11.5 * scale, 700),
+            hint: font(12.0 * scale, 400),
+            button: font(14.0 * scale, 600),
+            // for the text boxes, which AppKit sizes in points
+            edit: font(14.5, 400),
+        },
+        editor_target: EditorTarget::new(mtm),
         mc: Canvas::new(),
-        bubble: Bubble::new(font(14.0 * scale, true), font(12.0 * scale, true)),
+        bubble: Bubble::new(font(14.0 * scale, 700), font(12.0 * scale, 700)),
         scale,
         x: 0,
         y: 0,
@@ -582,13 +629,14 @@ pub fn run() {
     }
     seal.draw_mascot();
     seal.restart_autohide();
+    trim_heap();
     APP.with(|a| *a.borrow_mut() = Some(seal));
 
     let tick = RcBlock::new(|_timer| {
         with(|app| app.tick());
     });
     let timer = unsafe { NSTimer::scheduledTimerWithTimeInterval_repeats_block(1.0 / 60.0, true, &tick) };
-    // keep the seal moving while its menu is open, too
+    // keep the seal moving while a text box or the color panel tracks the pointer, too
     unsafe { NSRunLoop::currentRunLoop().addTimer_forMode(&timer, NSRunLoopCommonModes) };
     app.run();
 }

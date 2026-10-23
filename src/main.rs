@@ -11,8 +11,10 @@
 
 mod anim;
 mod bubble;
+mod editor;
 mod gfx;
 mod hooks;
+mod menu;
 mod seal;
 mod status;
 mod store;

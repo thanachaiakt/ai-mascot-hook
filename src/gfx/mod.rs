@@ -22,7 +22,6 @@ pub struct Canvas {
 }
 
 impl Canvas {
-    #[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
     /// Fill the whole surface with an opaque color.
     pub fn fill(&mut self, c: Rgba) {
         for p in self.px().chunks_exact_mut(4) {
@@ -100,13 +99,11 @@ impl Canvas {
         }
     }
 
-    #[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
     /// Draw a premultiplied image with its top-left at (x, y).
     pub fn blit(&mut self, img: &Image, x: i32, y: i32) {
         self.blit_faded(img, x, y, 255);
     }
 
-    #[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
     /// Draw a premultiplied image with its top-left at (x, y), faded by `alpha`.
     pub fn blit_faded(&mut self, img: &Image, x: i32, y: i32, alpha: u8) {
         let (w, h) = (self.w, self.h);
@@ -136,7 +133,6 @@ impl Canvas {
     }
 }
 
-#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 pub const NAVY: Rgba = Rgba(24, 52, 110, 255);
 pub const BLUE: Rgba = Rgba(74, 152, 216, 255);
 pub const WHITE: Rgba = Rgba(255, 255, 255, 255);
@@ -144,6 +140,14 @@ pub const WHITE: Rgba = Rgba(255, 255, 255, 255);
 /// A straight (not premultiplied) RGBA color.
 #[derive(Clone, Copy)]
 pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
+
+/// Where `Canvas::label` puts text across its rect; it is always centered top to bottom.
+#[derive(Clone, Copy)]
+pub enum Align {
+    Left,
+    Center,
+    Right,
+}
 
 
 
@@ -166,7 +170,6 @@ pub fn circle(cx: f32, cy: f32, r: f32) -> impl Fn(f32, f32) -> f32 {
     move |x, y| ((x - cx).powi(2) + (y - cy).powi(2)).sqrt() - r
 }
 
-#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 /// A line from `a` to `b`, `w` thick, with round ends.
 pub fn segment(a: (f32, f32), b: (f32, f32), w: f32) -> impl Fn(f32, f32) -> f32 {
     move |x, y| {
@@ -192,7 +195,6 @@ pub fn pixelated(sdf: impl Fn(f32, f32) -> f32, p: f32) -> impl Fn(f32, f32) -> 
     move |x, y| sdf((x / p).floor() * p + p / 2.0, (y / p).floor() * p + p / 2.0)
 }
 
-#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 /// A premultiplied BGRA image.
 pub struct Image {
     pub w: usize,
@@ -200,7 +202,6 @@ pub struct Image {
     pub px: Vec<u8>,
 }
 
-#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 impl Image {
     /// Decode an RGBA PNG.
     pub fn decode(bytes: &[u8]) -> Image {
@@ -257,12 +258,25 @@ impl Image {
 
 // ---- frame strips ---------------------------------------------------------------
 
-/// An animation kept as 8-bit palette indices: 1 byte a pixel, scaled when drawn.
+/// An animation kept as 8-bit palette indices. The frames stay compressed, one PNG each
+/// in the exe (see `build.rs`); only the frame on screen is unpacked, 1 byte a pixel, and
+/// scaled when drawn. A whole strip unpacked would take megabytes.
 pub struct Strip {
-    idx: Vec<u8>,
-    stride: usize,
+    pngs: Vec<&'static [u8]>,
     /// premultiplied BGRA per palette entry
     pal: [[u8; 4]; 256],
+    clear: u8,
+    /// the frame size in the PNGs, before any zoom
+    sw: usize,
+    sh: usize,
+    zoom: f32,
+    pivot: (f32, f32),
+    /// the unpacked frame (`fw` x `fh`), and which one it is; `raw` holds it at the PNG's
+    /// size on the way when the strip is zoomed. Both are reused from frame to frame.
+    idx: Vec<u8>,
+    raw: Vec<u8>,
+    unpacked: Option<usize>,
+    stride: usize,
     pub frames: usize,
     pub fw: usize,
     pub fh: usize,
@@ -272,54 +286,70 @@ pub struct Strip {
 }
 
 impl Strip {
-    pub fn decode(bytes: &[u8], frames: usize) -> Strip {
-        let mut decoder = png::Decoder::new(bytes);
-        decoder.set_transformations(png::Transformations::IDENTITY);
-        let mut reader = decoder.read_info().expect("embedded strip");
-        let (palette, trns) = {
-            let info = reader.info();
-            (info.palette.as_ref().map(|p| p.to_vec()).unwrap_or_default(), info.trns.as_ref().map(|t| t.to_vec()).unwrap_or_default())
-        };
-        let mut buf = vec![0; reader.output_buffer_size()];
-        let info = reader.next_frame(&mut buf).expect("embedded strip decodes");
-        let (w, h) = (info.width as usize, info.height as usize);
-        let bits = info.bit_depth as usize;
-        let mut idx = vec![0u8; w * h];
-        for y in 0..h {
-            let row = &buf[y * info.line_size..];
-            for x in 0..w {
-                idx[y * w + x] = if bits == 8 {
-                    row[x]
-                } else {
-                    let per = 8 / bits;
-                    (row[x / per] >> (8 - bits * (x % per + 1))) & ((1 << bits) - 1) as u8
-                };
-            }
+    /// Read the frame list `build.rs` wrote: the frame count and each frame's length
+    /// (u32, little endian), then the frames' PNGs.
+    pub fn decode(blob: &'static [u8], frames: usize) -> Strip {
+        let word = |i: usize| u32::from_le_bytes(blob[i * 4..i * 4 + 4].try_into().unwrap()) as usize;
+        let count = word(0);
+        debug_assert_eq!(count, frames, "frame count in seal.rs and in the strip differ");
+        let mut pngs = Vec::with_capacity(count);
+        let mut at = 4 * (count + 1);
+        for f in 0..count {
+            pngs.push(&blob[at..at + word(f + 1)]);
+            at += word(f + 1);
         }
+        // every frame carries the strip's palette: read it from the first
+        let reader = png::Decoder::new(pngs[0]).read_info().expect("embedded frame");
+        let info = reader.info();
+        let (sw, sh) = (info.width as usize, info.height as usize);
+        let palette = info.palette.as_deref().unwrap_or_default();
+        let trns = info.trns.as_deref().unwrap_or_default();
         let mut pal = [[0u8; 4]; 256];
         for (i, rgb) in palette.chunks(3).enumerate().take(256) {
             let a = *trns.get(i).unwrap_or(&255) as u32;
             pal[i] = [(rgb[2] as u32 * a / 255) as u8, (rgb[1] as u32 * a / 255) as u8, (rgb[0] as u32 * a / 255) as u8, a as u8];
         }
-        Strip { idx, stride: w, pal, frames, fw: w / frames, fh: h, pad: (0, 0, 0, 0) }
+        let clear = pal.iter().position(|c| c[3] == 0).unwrap_or(0) as u8;
+        Strip { pngs, pal, clear, sw, sh, zoom: 1.0, pivot: (0.0, 0.0), idx: Vec::new(), raw: Vec::new(), unpacked: None, stride: sw, frames: count, fw: sw, fh: sh, pad: (0, 0, 0, 0) }
+    }
+
+    /// Let go of the frames, so a clip about to be decoded does not sit in memory beside
+    /// the one it replaces. The strip draws nothing until it is replaced.
+    pub fn release(&mut self) {
+        self.pngs = Vec::new();
+        self.idx = Vec::new();
+        self.raw = Vec::new();
+        self.unpacked = None;
+        self.frames = 0;
+    }
+
+    /// Frame `f`'s indices at the PNG's size, into `out`.
+    fn unpack(&self, f: usize, out: &mut Vec<u8>) {
+        let mut decoder = png::Decoder::new(self.pngs[f]);
+        decoder.set_transformations(png::Transformations::IDENTITY);
+        let mut reader = decoder.read_info().expect("embedded frame");
+        out.resize(reader.output_buffer_size(), self.clear);
+        reader.next_frame(out).expect("embedded frame decodes");
+        out.truncate(self.sw * self.sh);
     }
 
     /// The strip with every frame enlarged by `zoom` about `pivot` (in frame pixels), for art
     /// whose subject sits smaller in its frames than the other strips' does. The frames
     /// grow wherever the enlarged art would leave them, so nothing is cut off; `pad` says
-    /// by how much.
-    pub fn zoomed(self, zoom: f32, pivot: (f32, f32)) -> Strip {
+    /// by how much. The enlarging itself happens as each frame is unpacked.
+    pub fn zoomed(mut self, zoom: f32, pivot: (f32, f32)) -> Strip {
         if (zoom - 1.0).abs() < 1e-3 {
             return self;
         }
-        let (fw, fh) = (self.fw, self.fh);
-        let solid = |f: usize, x: usize, y: usize| self.pal[self.idx[y * self.stride + f * fw + x] as usize][3] > 0;
+        let (fw, fh) = (self.sw, self.sh);
         // where the art reaches, in any frame, once enlarged
         let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+        let mut px = Vec::new();
         for f in 0..self.frames {
+            self.unpack(f, &mut px);
             for y in 0..fh {
                 for x in 0..fw {
-                    if solid(f, x, y) {
+                    if self.pal[px[y * fw + x] as usize][3] > 0 {
                         x0 = x0.min(x as f32);
                         x1 = x1.max(x as f32 + 1.0);
                         y0 = y0.min(y as f32);
@@ -333,26 +363,48 @@ impl Strip {
         let right = (grown(x1, pivot.0) - fw as f32).ceil().max(0.0) as usize;
         let top = (-grown(y0, pivot.1)).ceil().max(0.0) as usize;
         let bottom = (grown(y1, pivot.1) - fh as f32).ceil().max(0.0) as usize;
-        let (nw, nh) = (fw + left + right, fh + top + bottom);
-        let stride = nw * self.frames;
-        let clear = self.pal.iter().position(|c| c[3] == 0).unwrap_or(0) as u8;
-        let mut idx = vec![clear; stride * nh];
-        for f in 0..self.frames {
+        self.fw = fw + left + right;
+        self.fh = fh + top + bottom;
+        self.stride = self.fw;
+        self.pad = (left, top, right, bottom);
+        self.zoom = zoom;
+        self.pivot = pivot;
+        self
+    }
+
+    /// Make `idx` hold frame `f`, enlarged if the strip is zoomed.
+    fn show(&mut self, f: usize) {
+        if self.unpacked == Some(f) {
+            return;
+        }
+        if self.pad == (0, 0, 0, 0) {
+            let mut idx = std::mem::take(&mut self.idx);
+            self.unpack(f, &mut idx);
+            self.idx = idx;
+        } else {
+            let mut raw = std::mem::take(&mut self.raw);
+            self.unpack(f, &mut raw);
+            let (sw, sh, nw, nh) = (self.sw, self.sh, self.fw, self.fh);
+            let (left, top, _, _) = self.pad;
+            let (zoom, pivot) = (self.zoom, self.pivot);
+            self.idx.clear();
+            self.idx.resize(nw * nh, self.clear);
             for y in 0..nh {
                 let sy = pivot.1 + (y as f32 - top as f32 + 0.5 - pivot.1) / zoom;
-                if sy < 0.0 || sy >= fh as f32 {
+                if sy < 0.0 || sy >= sh as f32 {
                     continue;
                 }
                 for x in 0..nw {
                     let sx = pivot.0 + (x as f32 - left as f32 + 0.5 - pivot.0) / zoom;
-                    if sx < 0.0 || sx >= fw as f32 {
+                    if sx < 0.0 || sx >= sw as f32 {
                         continue;
                     }
-                    idx[y * stride + f * nw + x] = self.idx[sy as usize * self.stride + f * fw + sx as usize];
+                    self.idx[y * nw + x] = raw[sy as usize * sw + sx as usize];
                 }
             }
+            self.raw = raw;
         }
-        Strip { idx, stride, fw: nw, fh: nh, pad: (left, top, right, bottom), ..self }
+        self.unpacked = Some(f);
     }
 
     /// Draw frame `f` as large as fits the canvas, keeping the frame's aspect: centered
@@ -361,7 +413,11 @@ impl Strip {
     ///
     /// Source positions are worked out once per row and column, so the per-pixel work is
     /// table lookups and integer sums: this runs every frame, at 20 frames a second.
-    pub fn draw(&self, f: usize, cv: &mut Canvas) {
+    pub fn draw(&mut self, f: usize, cv: &mut Canvas) {
+        if f >= self.frames {
+            return;
+        }
+        self.show(f);
         let (cw, ch) = (cv.w as usize, cv.h as usize);
         let fit = (cw as f32 / self.fw as f32).min(ch as f32 / self.fh as f32);
         let ow = ((self.fw as f32 * fit).round() as usize).clamp(1, cw);
@@ -369,14 +425,13 @@ impl Strip {
         let (dx, dy) = ((cw - ow) / 2, ch - oh);
         let rx = self.fw as f32 / ow as f32;
         let ry = self.fh as f32 / oh as f32;
-        let base = f * self.fw;
         let px = cv.px();
         let out = |x: usize, y: usize| ((y + dy) * cw + x + dx) * 4;
         if rx > 1.25 {
             // shrinking: average an n x n grid of source pixels under each output pixel
             let n = (rx.ceil() as usize).clamp(2, 8);
             let pick = |o: usize, i: usize, r: f32, limit: usize| (((o as f32 + (i as f32 + 0.5) / n as f32) * r) as usize).min(limit - 1);
-            let cols: Vec<usize> = (0..ow * n).map(|k| base + pick(k / n, k % n, rx, self.fw)).collect();
+            let cols: Vec<usize> = (0..ow * n).map(|k| pick(k / n, k % n, rx, self.fw)).collect();
             let rows: Vec<usize> = (0..oh * n).map(|k| pick(k / n, k % n, ry, self.fh) * self.stride).collect();
             let nn = (n * n) as u32;
             for y in 0..oh {
@@ -405,7 +460,7 @@ impl Strip {
                 let i0 = s.floor() as usize;
                 (i0, (i0 + 1).min(limit - 1), (s.fract() * 256.0) as u32)
             };
-            let cols: Vec<(usize, usize, u32)> = (0..ow).map(|x| at(x, rx, self.fw)).map(|(a, b, w)| (base + a, base + b, w)).collect();
+            let cols: Vec<(usize, usize, u32)> = (0..ow).map(|x| at(x, rx, self.fw)).collect();
             for y in 0..oh {
                 let (y0, y1, wy) = at(y, ry, self.fh);
                 let (r0, r1) = (y0 * self.stride, y1 * self.stride);

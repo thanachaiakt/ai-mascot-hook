@@ -1,6 +1,6 @@
 # โครงสร้างและการเชื่อมต่อของโค้ด
 
-[English](architecture.md)
+[English](../en/architecture.md)
 
 Seal Pet เป็นโปรแกรม Rust ไฟล์เดียว ทำสองหน้าที่:
 
@@ -45,6 +45,8 @@ flowchart TB
         store["store.rs<br/>folder ข้อมูล ไฟล์ state ตำแหน่ง"]
         status["status.rs<br/>ข้อความ สี auto hide<br/>อ่านไฟล์ state"]
         bubble["bubble.rs<br/>จัดวาง วาด และ animate กล่องข้อความ"]
+        menu["menu.rs<br/>จัดวาง วาด และ animate เมนูปุ่มกลม"]
+        editor["editor.rs<br/>จัดวาง วาด และรับคลิกหน้าตั้งค่า"]
         hooks["hooks.rs<br/>~/.claude/settings.json"]
         anim["anim.rs<br/>เส้นโค้งความเร็ว"]
         gfx["gfx/mod.rs<br/>Canvas รูปทรง Strip"]
@@ -57,12 +59,14 @@ flowchart TB
 
     subgraph win["Windows: win/"]
         wmod["win/mod.rs<br/>App หน้าต่างแมวน้ำ เมาส์<br/>timer และ message loop"]
-        wmenu["win/menu.rs<br/>เมนูปุ่มกลม"]
-        wed["win/editor.rs<br/>หน้าตั้งค่าข้อความ"]
+        wmenu["win/menu.rs<br/>หน้าต่างเมนูปุ่มกลม"]
+        wed["win/editor.rs<br/>หน้าต่างตั้งค่า ช่อง EDIT<br/>หน้าเลือกสี"]
     end
 
     subgraph mac["macOS: mac/"]
-        mmod["mac/mod.rs<br/>App, NSPanel, SealView,<br/>NSMenu, NSTimer"]
+        mmod["mac/mod.rs<br/>App, NSPanel, SealView,<br/>NSTimer"]
+        mmenu["mac/menu.rs<br/>panel เมนูปุ่มกลม"]
+        med["mac/editor.rs<br/>panel ตั้งค่า NSTextField<br/>NSColorPanel"]
     end
 
     main --> hooks
@@ -73,6 +77,10 @@ flowchart TB
 
     wmod --> wmenu
     wmod --> wed
+    mmod --> mmenu
+    mmod --> med
+    wmenu & mmenu --> menu
+    wed & med --> editor
     wmod & mmod --> bubble
     wmod & mmod --> seal
     wmod & mmod --> store
@@ -81,6 +89,8 @@ flowchart TB
 
     bubble --> anim
     bubble --> gfx
+    menu & editor --> gfx
+    editor --> status
     bubble --> seal
     store --> seal
     store --> status
@@ -134,7 +144,7 @@ flowchart LR
     t5 --> drag["เริ่มลาก"]
     mouse --> press["press_down / press_move / press_up"]
     press -- "กดค้าง หรือขยับเกิน 4 px" --> drag --> mv["move_to + บันทึกตำแหน่ง"]
-    press -- "คลิก" --> menu["เมนู<br/>(ปุ่มกลม / NSMenu)"]
+    press -- "คลิก" --> menu["เมนูปุ่มกลม"]
     press -- "โหมดปรับขนาด" --> rs["set_height + บันทึก"]
     menu --> act["ปรับขนาด / แสดงสถานะ /<br/>แก้ข้อความ / ปิด"]
 ```
@@ -147,9 +157,10 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    png["assets/*.png<br/>แถบภาพ (PNG แบบ palette)"] -- "Strip::decode" --> strip["Strip<br/>เก็บเป็นเลข palette"]
+    png["assets/*.png<br/>แถบภาพ (PNG แบบ palette)"] -- "build.rs<br/>PNG ทีละเฟรม" --> frames["$OUT_DIR/*.frames<br/>(ฝังใน exe)"]
+    frames -- "Strip::decode" --> strip["Strip<br/>เฟรมที่ยังบีบอัดอยู่"]
     strip -- "Strip::zoomed<br/>(working ขยาย 1.15 เท่า ขยายกรอบตาม)" --> strip2["Strip + ระยะที่ขยาย"]
-    strip2 -- "Strip::draw<br/>ย่อขยายเท่าขนาดแมวน้ำ" --> mc["Canvas mc"]
+    strip2 -- "Strip::draw<br/>ถอดหนึ่งเฟรม ย่อขยายเท่าขนาดแมวน้ำ" --> mc["Canvas mc"]
     mc -- "โหมดปรับขนาด:<br/>กรอบ + ปุ่มมุม" --> mc
     mc -- "Windows: UpdateLayeredWindow<br/>macOS: CGImage บน layer" --> win["หน้าต่างแมวน้ำ<br/>(กรอบ + พื้นที่โปร่งใสรอบนอก)"]
 ```
@@ -193,7 +204,7 @@ flowchart LR
     state -- "อ่าน" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y ความสูง show_status")]
     placement -- "read_placement ตอนเริ่ม" --> app2
-    editor2["win/editor.rs กด Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>ข้อความ color.&lt;สถานะ&gt; autohide")]
+    editor2["หน้าตั้งค่า กด Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>ข้อความ color.&lt;สถานะ&gt; autohide")]
     statustxt -- "StatusText::load" --> app2
 ```
 
@@ -208,6 +219,7 @@ flowchart LR
 | ท่า ความเร็ว หรือขนาดของแต่ละสถานะ | `seal.rs` (`Clip`, `clip_for`) |
 | หน้าตาหรือการเคลื่อนไหวของกล่องข้อความ | `bubble.rs` |
 | ข้อความและสีเริ่มต้น | `status.rs` (`STATES`, `DEFAULT_COLOR`) |
-| เมนู / หน้าตั้งค่าบน Windows | `win/menu.rs` / `win/editor.rs` |
-| หน้าต่าง เมนู และการกดบน Mac | `mac/mod.rs` |
+| หน้าตาเมนูปุ่มกลม หรือหน้าตั้งค่า | `menu.rs` / `editor.rs` |
+| หน้าต่างเมนู / หน้าตั้งค่าบน Windows | `win/menu.rs` / `win/editor.rs` |
+| หน้าต่างและการกดบน Mac | `mac/mod.rs`, `mac/menu.rs`, `mac/editor.rs` |
 | การวาดตัวอักษร หรือเอาภาพขึ้นจอ | `gfx/win.rs`, `gfx/mac.rs` |

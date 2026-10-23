@@ -13,16 +13,16 @@ the status file; `seal-pet --install-hooks` points Claude Code's hooks at the
 program (`--remove-hooks` takes them out), and on Windows
 `tools/install-hooks.ps1` does the same.
 
-### macOS (phase 1)
+### macOS
 
 On macOS the seal, its animations, the status bubble (with all its animation),
-dragging and resizing (wheel or trackpad scroll, or the corner handle) behave as
-on Windows, with these differences:
+dragging and resizing (wheel or trackpad scroll, or the corner handle), the icon
+menu and the status text editor look and behave as on Windows, with these
+differences:
 
-- A click or right-click opens a native menu: **Resize**, **Show status** (checked
-  while the bubble is on) and **Quit Seal Pet**. The icon menu and the status
-  text editor are Windows only for now; on macOS the bubble's words, colors and
-  auto hide come from `status.txt`, edited by hand or copied from Windows.
+- The icon menu and the editor take the keyboard without making the app active.
+  The menu closes when another window takes the keyboard. The editor's **+**
+  opens the system color panel, which changes the color as it is used.
 - The app is an accessory app: no Dock icon or menu bar. Its windows float above
   other windows on every Space, including beside full-screen apps.
 - Sizes are in pixels (points × the main display's scale), as on Windows.
@@ -207,7 +207,8 @@ spins, the enlarged frames grow by exactly as much as the art extends past them
 transparent pixels, which pass clicks through. Position, size, dragging,
 resizing and the bubble all keep to the box. On Windows the windows are Win32
 layered windows; on macOS they are borderless AppKit panels whose layers show
-the drawn pixels.
+the drawn pixels. The menu and the editor are drawn by shared code, so they look
+the same on both; only their text boxes are each platform's own controls.
 
 Build the release executable with:
 
@@ -222,7 +223,9 @@ The resulting executable is `target/release/seal-pet.exe` on Windows and
 
 The source is split by purpose: `seal.rs` (sizes, timings, clips), `store.rs`
 (data folder, state file, placement), `status.rs` (the bubble's words and
-colors), `bubble.rs` (drawing and animating the bubble), `anim.rs` (easing),
+colors), `bubble.rs` (drawing and animating the bubble), `menu.rs` and `editor.rs` (the
+icon menu's and the editor's layout and drawing), `anim.rs` (easing),
 `hooks.rs` (installing the hooks) and `gfx` (the pixel surface, with
 `gfx/win.rs` and `gfx/mac.rs` for each platform's text and display) are shared;
-`win/` (the app, `menu.rs`, `editor.rs`) and `mac/` are each platform's windows.
+`win/` and `mac/` (each with the app, `menu.rs` and `editor.rs`) are each
+platform's windows.

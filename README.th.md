@@ -144,12 +144,11 @@ seal-pet.exe --set working
 
 ## ใช้บน Mac
 
-เวอร์ชัน Mac ยังเป็นรอบแรก ใช้ได้แล้ว: แมวน้ำ ท่าทางตามสถานะ กล่องข้อความพร้อม animation
-การลาก การปรับขนาด และ hook ของ Claude Code
-คลิกที่แมวน้ำจะมีเมนูของ Mac ขึ้นมา (**Resize**, **Show status**, **Quit Seal Pet**)
-**หน้าตั้งค่าข้อความยังไม่มีบน Mac** ถ้าจะเปลี่ยนข้อความ สี หรือ auto hide
-ให้แก้ไฟล์ `~/Library/Application Support/seal-pet/status.txt` เอง (รูปแบบเดียวกับ Windows
-คัดลอกไฟล์จาก Windows มาใช้ได้)
+เวอร์ชัน Mac ใช้งานได้เหมือน Windows: แมวน้ำ ท่าทางตามสถานะ กล่องข้อความพร้อม animation
+การลาก การปรับขนาด เมนูปุ่มกลม หน้าตั้งค่าข้อความ และ hook ของ Claude Code
+ปุ่ม **+** ในหน้าตั้งค่าจะเปิดหน้าเลือกสีของ macOS
+การตั้งค่าเก็บไว้ใน `~/Library/Application Support/seal-pet/` (`status.txt` รูปแบบเดียวกับ
+Windows คัดลอกไฟล์จาก Windows มาใช้ได้)
 
 ### ติดตั้งบน Mac
 
@@ -161,7 +160,7 @@ cargo build --release
 ./target/release/seal-pet &
 ```
 
-จากนั้นเปิด Claude Code ใหม่ แมวน้ำไม่มีไอคอนใน Dock ปิดได้จากเมนูของแมวน้ำ (**Quit Seal Pet**)
+จากนั้นเปิด Claude Code ใหม่ แมวน้ำไม่มีไอคอนใน Dock ปิดได้จากปุ่ม **Close** ในเมนูของแมวน้ำ
 
 ถ้าย้ายไฟล์ `seal-pet` ไปไว้ที่อื่น ให้รัน `--install-hooks` จากที่ใหม่อีกครั้ง เพราะ hook เรียกโปรแกรมตาม path
 
@@ -238,4 +237,5 @@ Windows ล็อกไฟล์ exe ที่กำลังรันอยู�
 - ตอนเปิดเมนูของแมวน้ำ กล่องข้อความจะซ่อนชั่วคราว
 
 รายละเอียดการทำงานทั้งหมดดูได้ที่ [SPEC.md](SPEC.md)
-และแผนภาพการเชื่อมต่อของโค้ดดูได้ที่ [docs/architecture.th.md](docs/architecture.th.md)
+และแผนภาพการเชื่อมต่อของโค้ดดูได้ที่ [docs/th/architecture.md](docs/th/architecture.md)
+ส่วนเรื่อง token, เวลาที่ hook ใช้, CPU และหน่วยความจำ ดูได้ที่ [docs/th/technical.md](docs/th/technical.md)

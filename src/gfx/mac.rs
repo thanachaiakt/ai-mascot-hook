@@ -7,12 +7,14 @@ use std::ptr::{null_mut, NonNull};
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
-use objc2_app_kit::{NSColor, NSFont, NSFontAttributeName, NSFontWeightBold, NSFontWeightRegular, NSForegroundColorAttributeName, NSGraphicsContext, NSStringDrawing};
+use objc2_app_kit::{
+    NSColor, NSFont, NSFontAttributeName, NSFontWeightBold, NSFontWeightRegular, NSFontWeightSemibold, NSForegroundColorAttributeName, NSGraphicsContext, NSStringDrawing,
+};
 use objc2_core_foundation::{CFRetained, CGPoint, CGRect, CGSize};
 use objc2_core_graphics::{CGBitmapContextCreateImage, CGColorSpace, CGContext, CGImage};
 use objc2_foundation::{NSDictionary, NSString};
 
-use super::{Canvas, Rgba};
+use super::{Align, Canvas, Rgba};
 
 /// A font, kept for the life of the program (there are only a few).
 pub type Font = *const NSFont;
@@ -26,9 +28,16 @@ pub struct Rect {
     pub bottom: i32,
 }
 
-/// The system font, `px` pixels tall, bold or regular: it covers Thai too.
-pub fn font(px: f32, bold: bool) -> Font {
-    let weight = unsafe { if bold { NSFontWeightBold } else { NSFontWeightRegular } };
+/// The system font, `px` pixels tall, at a CSS-style `weight` (400 regular, 600 semibold,
+/// 700 bold), as on Windows. It covers Thai too.
+pub fn font(px: f32, weight: i32) -> Font {
+    let weight = unsafe {
+        match weight {
+            ..=500 => NSFontWeightRegular,
+            501..=650 => NSFontWeightSemibold,
+            _ => NSFontWeightBold,
+        }
+    };
     Retained::into_raw(NSFont::systemFontOfSize_weight(px as f64, weight)) as Font
 }
 
@@ -84,11 +93,20 @@ impl Canvas {
 
     /// Draw `text` centered in `rect`.
     pub fn text(&mut self, font: Font, text: &str, rect: Rect, color: Rgba) {
+        self.label(font, text, rect, color, Align::Center);
+    }
+
+    /// Draw `text` on one line in `rect`, placed by `align`.
+    pub fn label(&mut self, font: Font, text: &str, rect: Rect, color: Rgba, align: Align) {
         let Some(ctx) = &self.sys.ctx else { return };
         let attrs = attributes(font, color);
         let s = NSString::from_str(text);
         let size = unsafe { s.sizeWithAttributes(Some(&attrs)) };
-        let x = rect.left as f64 + ((rect.right - rect.left) as f64 - size.width) / 2.0;
+        let x = match align {
+            Align::Left => rect.left as f64,
+            Align::Center => rect.left as f64 + ((rect.right - rect.left) as f64 - size.width) / 2.0,
+            Align::Right => rect.right as f64 - size.width,
+        };
         let y = rect.top as f64 + ((rect.bottom - rect.top) as f64 - size.height) / 2.0;
         let gc = NSGraphicsContext::graphicsContextWithCGContext_flipped(ctx, true);
         NSGraphicsContext::saveGraphicsState_class();

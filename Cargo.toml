@@ -8,6 +8,9 @@ description = "A tiny desktop seal that shows what Claude Code is doing"
 png = "0.17"
 serde_json = { version = "1", features = ["preserve_order"] }
 
+[build-dependencies]
+png = "0.17"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",

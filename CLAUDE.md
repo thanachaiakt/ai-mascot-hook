@@ -2,8 +2,9 @@
 
 A desktop seal (Windows and macOS) that plays an animation for the state Claude Code
 hooks write. `SPEC.md` is the behavior contract; `README.md` and `README.th.md` (Thai)
-are the user docs. `docs/architecture.md` (and `.th.md`) diagrams how the modules
-connect; update it when modules or data flow change.
+are the user docs. `docs/en/` holds the English docs and `docs/th/` the same files in
+Thai: `architecture.md` diagrams how the modules connect (update it when modules or data
+flow change), `technical.md` gives measured token, CPU and memory costs.
 
 ## Layout
 
@@ -18,6 +19,8 @@ Shared by both platforms:
   and state-file parsing and writing.
 - `src/bubble.rs`: lays out, draws and animates the status bubble and the size readout.
   Platforms only show its canvases.
+- `src/menu.rs`, `src/editor.rs`: the icon menu's and the status editor's layout,
+  drawing and hit-testing, shared the same way. The editor's text boxes are native.
 - `src/hooks.rs`: edits `~/.claude/settings.json`.
 - `src/anim.rs`: easing curves.
 - `src/gfx/mod.rs`: pixel `Canvas`, SDF shapes, `Strip`.
@@ -26,10 +29,11 @@ Per platform:
 
 - `src/gfx/win.rs` and `src/gfx/mac.rs`: surface, text, and getting pixels on screen.
 - `src/win/`: Win32 app (`mod.rs`: seal window, pointer handling, bubble glue),
-  `menu.rs` (icon menu), `editor.rs` (status editor).
-- `src/mac/mod.rs`: AppKit app (objc2). Phase 1: there is no status editor; it uses a
-  native NSMenu.
-- `assets/`: frame strips embedded with `include_bytes!`. `tools/`: art and hook scripts.
+  `menu.rs` (icon menu window), `editor.rs` (editor window, EDIT boxes, color dialog).
+- `src/mac/`: AppKit app (objc2), laid out the same way: `menu.rs` (icon menu panel),
+  `editor.rs` (editor panel, NSTextFields, NSColorPanel).
+- `assets/`: frame strips. `build.rs` cuts each into one PNG per frame, embedded with
+  `include_bytes!`, so only the frame on screen is unpacked. `tools/`: art and hook scripts.
 
 ## Commands
 

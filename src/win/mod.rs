@@ -22,7 +22,9 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 use crate::bubble::*;
+use crate::editor::*;
 use crate::gfx::*;
+use crate::menu::*;
 use crate::seal::*;
 use crate::status::*;
 use crate::store::*;
@@ -61,11 +63,10 @@ struct App {
     bubble: HWND,
     /// the size readout under the seal while resizing
     size_tag: HWND,
-    menu: HWND,
+    menu_win: HWND,
     mc: Canvas,
     /// the status bubble and the size readout, as drawn
     bubble_view: Bubble,
-    nc: Canvas,
     x: i32,
     y: i32,
     height: i32,
@@ -81,17 +82,9 @@ struct App {
     /// the bubble has had its auto-hide time since the last state change
     auto_hidden: bool,
     status: StatusText,
-    menu_open: bool,
-    menu_hover: Option<Item>,
-    menu_step: u32,
-    settings_open: bool,
-    settings_step: u32,
-    menu_at: (i32, i32),
-    menu_below: bool,
+    menu: Menu,
     tracking_leave: bool,
     ui: f32,
-    font: HFONT,
-    buttons: Vec<Image>,
     editor: Option<Editor>,
 }
 
@@ -161,7 +154,7 @@ impl App {
     /// can be previewed, otherwise the one the hooks set.
     fn shown_state(&self) -> &str {
         match &self.editor {
-            Some(e) => STATES[e.selected].0,
+            Some(e) => STATES[e.draft.selected].0,
             None => &self.state,
         }
     }
@@ -173,6 +166,7 @@ impl App {
             return;
         }
         self.clip = clip;
+        self.strip.release();
         self.strip = clip.strip();
         self.frame = 0;
         unsafe { SetTimer(self.mascot, TIMER_FRAME, clip.interval, None) };
@@ -382,7 +376,7 @@ impl App {
     /// The size readout under the seal while resizing. Returns its screen bounds, so the
     /// bubble can stack clear of it.
     fn update_size_tag(&mut self) -> Option<Bounds> {
-        if !self.resize_mode || self.menu_open {
+        if !self.resize_mode || self.menu.open {
             unsafe { ShowWindow(self.size_tag, SW_HIDE) };
             return None;
         }
@@ -396,7 +390,7 @@ impl App {
 
     fn update_bubble(&mut self) {
         let tag = self.update_size_tag();
-        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some()) && !self.menu_open;
+        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some()) && !self.menu.open;
         if !visible {
             self.bubble_view.hide();
             self.bubble_frame();
@@ -407,16 +401,14 @@ impl App {
             ("Scroll, Drag or Click".to_string(), None)
         } else if let Some(e) = &self.editor {
             // while editing, the bubble previews the state being edited, as typed and colored
-            let i = e.selected;
-            let mut buf = [0u16; 128];
-            let n = unsafe { GetWindowTextW(e.edits[i], buf.as_mut_ptr(), buf.len() as i32) } as usize;
-            let typed = String::from_utf16_lossy(&buf[..n]);
+            let i = e.draft.selected;
+            let typed = window_text(e.edits[i]);
             (if typed.trim().is_empty() { STATES[i].2.to_string() } else { typed }, Some(accent(STATES[i].0)))
         } else {
             (self.status.text(&self.state).to_string(), Some(accent(&self.state)))
         };
         let ink = match &self.editor {
-            Some(e) => e.colors[e.selected],
+            Some(e) => e.draft.colors[e.draft.selected],
             None => self.status.color(&self.state),
         };
         let (w, h) = self.size();
@@ -564,7 +556,7 @@ pub fn run() {
         let mascot = layered_window("SealPetMascot", Some(mascot_proc), WS_EX_NOACTIVATE);
         let bubble = layered_window("SealPetBubble", Some(bubble_proc), WS_EX_NOACTIVATE | WS_EX_TRANSPARENT);
         let size_tag = layered_window("SealPetSize", Some(bubble_proc), WS_EX_NOACTIVATE | WS_EX_TRANSPARENT);
-        let menu = layered_window("SealPetMenu", Some(menu_proc), 0);
+        let menu_win = layered_window("SealPetMenu", Some(menu_proc), 0);
         register("SealPetEditor", Some(editor_proc), GetStockObject(WHITE_BRUSH) as HBRUSH);
 
         let (x, y, height, show_status) = read_placement(default_h).unwrap_or_else(|| {
@@ -572,10 +564,6 @@ pub fn run() {
             let work = work_area(0, 0);
             (work.right - default_h - 40, work.bottom - default_h - 40, default_h, false)
         });
-
-        let sheet = Image::decode(MENU_PNG);
-        let btn = (48.0 * ui).round() as usize;
-        let buttons = (0..12).map(|i| sheet.tile(i, 12, btn)).collect();
 
         let (state, stamp) = read_state();
         // no word yet: forget the stamp so the first poll looks again
@@ -586,10 +574,9 @@ pub fn run() {
             mascot,
             bubble,
             size_tag,
-            menu,
+            menu_win,
             mc: Canvas::new(),
             bubble_view: Bubble::new(font(14.0 * ui, 700, "Leelawadee UI"), font(12.0 * ui, 700, "Leelawadee UI")),
-            nc: Canvas::new(),
             x,
             y,
             height,
@@ -603,17 +590,9 @@ pub fn run() {
             show_status,
             auto_hidden: false,
             status: StatusText::load(&data_dir().join("status.txt")),
-            menu_open: false,
-            menu_hover: None,
-            menu_step: 0,
-            settings_open: false,
-            settings_step: 0,
-            menu_at: (0, 0),
-            menu_below: false,
+            menu: Menu::new(font(14.0 * ui, 700, "Leelawadee UI"), ui),
             tracking_leave: false,
             ui,
-            font: font(14.0 * ui, 700, "Leelawadee UI"),
-            buttons,
             editor: None,
         };
         SetTimer(mascot, TIMER_FRAME, clip.interval, None);

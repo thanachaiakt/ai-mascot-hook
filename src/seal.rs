@@ -17,8 +17,9 @@ pub const RESCAN: std::time::Duration = std::time::Duration::from_secs(5);
 pub const HOLD_MS: u32 = 220;
 pub const DRAG_SLOP: i32 = 4;
 
-/// One animation: its frame strip, frame count and milliseconds per frame.
+/// One animation: its frames, frame count and milliseconds per frame.
 pub struct Clip {
+    /// the frame strip in `assets/`, cut by `build.rs` into one PNG per frame
     pub png: &'static [u8],
     pub frames: usize,
     pub interval: u32,
@@ -34,13 +35,13 @@ impl Clip {
     }
 }
 
-pub const LOADING: Clip = Clip { png: include_bytes!("../assets/loading.png"), frames: 74, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
+pub const LOADING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/loading.frames")), frames: 74, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
 // the swimming seal is drawn floating mid-frame and smaller: bring it to the others' size,
 // its bottom down to where they stand (the window grows past the seal's box to keep the
 // whole swimmer when it reaches an edge)
-pub const WORKING: Clip = Clip { png: include_bytes!("../assets/working.png"), frames: 95, interval: 83, zoom: 1.15, pivot: (127.0, 37.0) };
-pub const ASKING: Clip = Clip { png: include_bytes!("../assets/asking.png"), frames: 60, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
-pub const COMPLETED: Clip = Clip { png: include_bytes!("../assets/completed.png"), frames: 86, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
+pub const WORKING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/working.frames")), frames: 95, interval: 83, zoom: 1.15, pivot: (127.0, 37.0) };
+pub const ASKING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/asking.frames")), frames: 60, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
+pub const COMPLETED: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/completed.frames")), frames: 86, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
 
 pub fn clip_for(state: &str) -> &'static Clip {
     match state {
