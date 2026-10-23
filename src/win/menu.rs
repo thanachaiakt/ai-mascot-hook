@@ -37,7 +37,23 @@ pub(super) struct MenuLayout {
 
 pub(super) const MENU_PNG: &[u8] = include_bytes!("../../assets/menu.png");
 
+// design-pixel sizes of the menu window's padding and the label strip between the main row
+// and the seal; `menu_overlap` needs them to know how much of the window is empty
+const MENU_PAD: f32 = 10.0;
+const MENU_LABEL_GAP: f32 = 8.0;
+const MENU_LABEL: f32 = 28.0;
+// the space left between the buttons and the seal
+const MENU_SEAL_GAP: f32 = 6.0;
+
 impl App {
+    /// How far the menu window reaches into the seal's box on the side it opens from. The
+    /// label strip is empty until a button is hovered, so the window covers it with the seal
+    /// and keeps the buttons themselves close.
+    fn menu_overlap(&self) -> i32 {
+        let design = if self.menu_below { 10.0 } else { MENU_PAD + MENU_LABEL_GAP + MENU_LABEL - MENU_SEAL_GAP };
+        (design * self.ui) as i32
+    }
+
     // ---- the icon menu ---------------------------------------------------------
 
     /// The menu's layout: a main row (resize, settings, close) bowed into an arc, and, while
@@ -47,10 +63,10 @@ impl App {
         let ui = self.ui;
         let btn = (48.0 * ui).round() as i32;
         let gap = (12.0 * ui) as i32;
-        let pad = (10.0 * ui) as i32;
+        let pad = (MENU_PAD * ui) as i32;
         let raise = (14.0 * ui) as i32;
-        let label_gap = (8.0 * ui) as i32;
-        let label = (28.0 * ui) as i32;
+        let label_gap = (MENU_LABEL_GAP * ui) as i32;
+        let label = (MENU_LABEL * ui) as i32;
         let n = MAIN_ROW.len() as i32;
         let w = n * btn + (n - 1) * gap + 2 * pad;
         let main_h = raise + btn + label_gap + label;
@@ -104,7 +120,8 @@ impl App {
         let (mw, mh) = self.size();
         let work = work_area(self.x + mw / 2, self.y);
         let mx = self.x + mw / 2 - w / 2;
-        let my = if self.menu_below { self.y + mh - (10.0 * self.ui) as i32 } else { self.y - h + (10.0 * self.ui) as i32 };
+        let overlap = self.menu_overlap();
+        let my = if self.menu_below { self.y + mh - overlap } else { self.y - h + overlap };
         self.menu_at = (mx.clamp(work.left, (work.right - w).max(work.left)), my.clamp(work.top, (work.bottom - h).max(work.top)));
     }
 
@@ -114,8 +131,8 @@ impl App {
         let h = self.menu_layout().h;
         let (mw, _) = self.size();
         let work = work_area(self.x + mw / 2, self.y);
-        let lift = (10.0 * self.ui) as i32;
-        self.menu_below = self.y - h + lift < work.top;
+        self.menu_below = false;
+        self.menu_below = self.y - h + self.menu_overlap() < work.top;
         self.place_menu();
         self.menu_open = true;
         self.menu_hover = None;
