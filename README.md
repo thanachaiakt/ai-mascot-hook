@@ -1,4 +1,4 @@
-# Seal Pet
+# ai-mascot-hook
 
 [ภาษาไทย: วิธีติดตั้งและใช้งาน](README.th.md)
 
@@ -13,8 +13,132 @@ and naps when the turn is done or idle.
   <img src="assets/gif/completed.gif" width="120" alt="Seal napping">
 </p>
 
+## Contents
+
+- [How it works](#how-it-works)
+- [Install on Windows](#install-on-windows)
+- [Install on macOS](#install-on-macos)
+- [Using the seal](#using-the-seal)
+- [Where settings are kept](#where-settings-are-kept)
+- [Uninstall](#uninstall)
+- [Troubleshooting](#troubleshooting)
+- [Build from source](#build-from-source)
+- [The art](#the-art)
+
+## How it works
+
+Two small pieces cooperate. They never talk to each other directly; they share a tiny file.
+
+```text
+Claude Code ──(hook runs)──▶ ai-mascot-hook --set working ──▶ writes the word "working"
+                                                              into the `state` file
+                                                                      │
+the seal on your desktop ◀──(reads the file every 0.4 s)─────────────┘
+        └─ sees a new word, plays that animation, shows the bubble
+```
+
+1. **Hooks.** Claude Code can run a command when something happens (you send a message,
+   it uses a tool, it asks permission, it finishes). Installing ai-mascot-hook adds one such
+   command per event to `~/.claude/settings.json`. Each command is just
+   `ai-mascot-hook --set <state>`: it writes one word to the `state` file and exits at once.
+2. **The seal.** The same program, started without arguments, is the seal on your desktop.
+   It looks at the `state` file every 400 ms and plays the animation for the word it finds.
+   Only one seal runs at a time.
+
+| Claude Code event | State | What the seal does |
+|---|---|---|
+| `SessionStart`, `SessionEnd` | `idle` | naps |
+| `UserPromptSubmit` | `loading` | claps while thinking |
+| `PreToolUse`, `PostToolUse` | `working` | swims in a hard hat |
+| `PermissionRequest`, `Notification` (permission, idle, MCP prompts) | `asking` | waves for your attention |
+| `Stop` | `completed` | naps, turn is done |
+
+Hooks only fire for Claude Code running on this computer. Nothing is sent over the network.
+
+## Install on Windows
+
+Needs 64-bit Windows 10 or later. No runtime or installer is required. Claude Code is
+optional (without it the seal still runs, and you can drive it by hand with `--set`).
+
+1. **Download.** Get `ai-mascot-hook.exe` from the
+   [GitHub Releases](https://github.com/thanachaiakt/ai-mascot-status/releases) page.
+   Save it in a folder you will keep, with **no spaces in the path**, for example
+   `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`. Not Downloads: the hooks run the exe at
+   exactly this path, and moving it later breaks them.
+2. **Start the seal.** Double-click the exe. The seal appears on the screen.
+3. **Install the hooks.** Open PowerShell and run:
+
+   ```powershell
+   C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --install-hooks
+   ```
+
+   It backs up `~\.claude\settings.json` as `settings.json.bak-<time>`, adds the hooks from
+   the table above, and keeps every other hook and setting you have.
+   (From a clone of the repo, `powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe <path>`
+   does the same.)
+4. **Restart Claude Code.** A session that was open before the install does not run the
+   new hooks. Send Claude a message: the seal should start clapping.
+5. **Start with Windows (optional).** Press `Win + R`, type `shell:startup`, press Enter,
+   and put a shortcut to `ai-mascot-hook.exe` in that folder.
+
+The Claude desktop app works too. It is a packaged (MSIX) app, so Windows redirects the
+state file its hooks write into `%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\ai-mascot-hook\state`;
+the seal reads those copies as well and follows whichever was written last.
+
+## Install on macOS
+
+Needs macOS 11 or later (Apple silicon or Intel). There is no prebuilt Mac download yet,
+so build it once (about a minute). The seal has no Dock icon.
+
+1. **Install Rust** from <https://rustup.rs> (skip if `cargo --version` already works).
+2. **Build.** In Terminal, inside the project folder:
+
+   ```bash
+   cargo build --release
+   ```
+
+3. **Put the binary somewhere permanent**, since the hooks run it by path:
+
+   ```bash
+   mkdir -p ~/bin && cp target/release/ai-mascot-hook ~/bin/
+   ```
+
+4. **Install the hooks** (run it from the place you copied the binary to):
+
+   ```bash
+   ~/bin/ai-mascot-hook --install-hooks
+   ```
+
+5. **Start the seal:**
+
+   ```bash
+   ~/bin/ai-mascot-hook &
+   ```
+
+6. **Restart Claude Code**, then send Claude a message: the seal should start clapping.
+7. **Start at login (optional).** Save this as `~/Library/LaunchAgents/com.ai-mascot-hook.plist`
+   (with your own path), then run
+   `launchctl load ~/Library/LaunchAgents/com.ai-mascot-hook.plist`:
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key><string>com.ai-mascot-hook</string>
+     <key>ProgramArguments</key><array><string>/Users/you/bin/ai-mascot-hook</string></array>
+     <key>RunAtLoad</key><true/>
+   </dict>
+   </plist>
+   ```
+
+Everything else works as on Windows: dragging, resizing, the icon menu, the status editor
+(its **+** opens the macOS color panel) and the bubble.
+
+## Using the seal
+
 - Borderless, transparent around the seal, always on top, no taskbar button.
-- Pointing at the seal shows the system's hand pointer.
+- **Press and hold** (or press and move): drag the seal anywhere.
 - **Click** the seal: a menu of three round buttons pops up above it
   1. arrows (**Resize**): resize mode. Turn the mouse wheel over the seal or drag its corner
      handle; the seal fits anywhere from a 32 x 32 to a 512 x 512 px box. Click the seal when done.
@@ -22,8 +146,8 @@ and naps when the turn is done or idle.
      - speech bubble (**Show status**): show or hide a status bubble ("Working…", "Need your input!", ...)
      - pencil (**Edit status**): opens the status editor (see below).
   3. cross (**Close**): quit
-- **Press and hold** (or press and move): drag the seal anywhere.
-- Position, size and the status bubble are remembered in `%LOCALAPPDATA%\seal-pet\placement`.
+- Drive it by hand (handy for testing): `ai-mascot-hook --set asking`. States:
+  `loading`, `working`, `asking`, `completed`, `idle`.
 
 ### The status bubble
 
@@ -42,115 +166,74 @@ ring ripples out of the colored dot.
   (eight swatches, or **+** for any color).
 - **Bubble**: **Show status** turns the bubble on or off; **Auto hide** hides it again
   1–20 seconds after each state change.
-- **Save** (or Enter) keeps the changes in `%LOCALAPPDATA%\seal-pet\status.txt`;
+- **Save** (or Enter) keeps the changes in `status.txt`;
   **Cancel**, × or Escape drops them; **Reset** restores the default words and colors.
 
-## How it knows the state
+## Where settings are kept
 
-Claude Code hooks in `~/.claude/settings.json` write one word to
-`%LOCALAPPDATA%\seal-pet\state` (`loading`, `working`, `asking`, `completed`,
-or `idle`).
-Seal Pet checks that file every 400 ms and switches animation when it changes.
+Everything lives in one folder, and nothing is stored anywhere else (no registry, no cloud):
 
-The exe writes that file itself: `seal-pet.exe --set working` writes the word and exits
-at once (the running seal is left alone). To set the hooks up, build the exe, then run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1
-```
-
-or, on any platform, let the program do it (on Windows the exe path must have no spaces):
-
-```bash
-seal-pet --install-hooks     # --remove-hooks takes them out
-```
-
-It adds these hooks, each a plain `seal-pet.exe --set <state>` command line that every
-Claude Code version runs, and keeps every other hook you have (it backs `settings.json` up first; `-Remove` takes them out again,
-`-Exe <path>` points them at another copy of the exe):
-
-| Claude Code event | State |
+| Platform | Folder |
 |---|---|
-| `SessionStart`, `SessionEnd` | `idle` |
-| `UserPromptSubmit` | `loading` |
-| `PreToolUse`, `PostToolUse` | `working` |
-| `PermissionRequest`, `Notification` (permission, idle, MCP prompts) | `asking` |
-| `Stop` | `completed` |
+| Windows | `%LOCALAPPDATA%\ai-mascot-hook\` |
+| macOS | `~/Library/Application Support/ai-mascot-hook/` |
 
-Restart Claude Code afterwards so it loads them (a session started before the hooks
-were installed does not run them). Hooks only fire for Claude Code running on this
-computer. The Claude desktop app works too: it is a packaged (MSIX) app, so Windows
-redirects the state file its hooks write into
-`%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\seal-pet\state`; Seal Pet reads those
-copies as well and follows whichever was written last. The hooks run the exe at the path you installed, and Windows locks a
-running exe, so close the seal before rebuilding it.
+| File | What it holds | Written by |
+|---|---|---|
+| `state` | the current state word (`working`, ...) | the hooks (`--set`) |
+| `placement` | seal position, size, and whether the bubble is shown | the seal, when you move, resize or toggle |
+| `status.txt` | each state's words and color, and the auto-hide time | the status editor's **Save** |
 
-## System requirements
+`status.txt` has the same plain-text format on both platforms, so you can copy it between
+a Windows PC and a Mac. Deleting a file just resets that setting to its default.
+The hooks themselves live in Claude Code's `~/.claude/settings.json`.
 
-- 64-bit Windows 10 or later, or macOS 11 or later (Apple silicon or Intel).
-- No additional runtime is required to run the downloaded release executable.
-- Claude Code is optional; it is only needed if you want Seal Pet to display
-  Claude Code's status automatically.
-- Building from source requires the stable Rust toolchain.
+## Uninstall
 
-## Build and run
+1. Quit the seal: click it, then the cross (**Close**).
+2. Remove the hooks (backs up `settings.json` first):
+   - Windows: `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --remove-hooks`
+   - macOS: `~/bin/ai-mascot-hook --remove-hooks`
+3. Delete what is left:
+   - Windows: the `shell:startup` shortcut (if any), the exe, and `%LOCALAPPDATA%\ai-mascot-hook`
+   - macOS: `launchctl unload ~/Library/LaunchAgents/com.ai-mascot-hook.plist` and delete that file
+     (if you set up login start), the binary, and
+     `rm -rf ~/Library/Application\ Support/ai-mascot-hook`
+
+## Troubleshooting
+
+**The seal does not follow Claude.**
+- Restart Claude Code (or open a new session); sessions opened before the install do not run hooks.
+- Run `ai-mascot-hook --set asking`. If the seal reacts, the program is fine and the problem
+  is the hooks. If you moved the exe, run `--install-hooks` again from its new place.
+
+**The Claude desktop app does not change the seal.** Use the latest exe and open a new session
+(see the MSIX note under [Install on Windows](#install-on-windows)).
+
+**I upgraded from the old name `seal-pet`.** Run `--install-hooks` once: it replaces the old
+`seal-pet` hooks with the new ones. Settings now live in the `ai-mascot-hook` folder; copy
+`status.txt` and `placement` over from the old `seal-pet` folder to keep them.
+
+**`Access is denied` when building (Windows).** Windows locks a running exe: quit the seal first.
+
+**No status bubble.** Turn on **Show status** in the Settings row or the editor. With
+**Auto hide** on, the bubble hides itself and returns on the next state change. It also
+hides while the icon menu is open.
+
+## Build from source
+
+Needs the stable Rust toolchain.
 
 ```bash
 cargo build --release
 ```
 
-```bash
-target/release/seal-pet.exe
-```
-
-Only one seal runs at a time. To start it with Windows, put a shortcut to
-`seal-pet.exe` in `shell:startup`.
-
-## macOS
-
-The Mac version works as on Windows: the seal, its animations, the status bubble,
-dragging, resizing, the icon menu, the status editor and the hooks. The editor's **+**
-opens the macOS color panel. Settings are kept in
-`~/Library/Application Support/seal-pet/` (`status.txt` has the same format as on
-Windows, so it can be copied across).
-
-```bash
-cargo build --release
-./target/release/seal-pet --install-hooks
-./target/release/seal-pet &
-```
-
-Then restart Claude Code. The seal has no Dock icon; quit it with the menu's
-**Close** button. Keep the
-binary where it is (or copy it somewhere permanent and run `--install-hooks` from
-there), since the hooks run it by path.
-
-To start it at login, save this as `~/Library/LaunchAgents/com.seal-pet.plist`
-(with your path), then run `launchctl load ~/Library/LaunchAgents/com.seal-pet.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.seal-pet</string>
-  <key>ProgramArguments</key><array><string>/Users/you/seal-pet/target/release/seal-pet</string></array>
-  <key>RunAtLoad</key><true/>
-</dict>
-</plist>
-```
-
-## Install a release
-
-Download `seal-pet.exe` from the [GitHub Releases](https://github.com/thanachaiakt/ai-mascot-status/releases)
-page and save it where you want to keep the app. Run the executable to start
-Seal Pet. To launch it automatically at sign-in, put a shortcut to the
-executable in `shell:startup`. Releases provide the standalone executable; no
-installer is included.
+The result is `target/release/ai-mascot-hook.exe` (Windows) or `target/release/ai-mascot-hook`
+(macOS). Only one seal runs at a time.
 
 ## The art
 
-Each state image is an animated frame strip. Seal Pet plays the matching strip
+Each state image is an animated frame strip. The seal plays the matching strip
 for the current state. The previews below are the animated GIFs from `assets/gif/`
 (transparent); click one to open its full frame strip.
 
@@ -169,7 +252,7 @@ grid backdrop, trims it to a seamless loop, crops it square, and writes the stri
 and a 300 x 300 GIF (`assets/gif/<state>.gif`). Asking loops only the
 part where the seal waves its right flipper; the clip's left-flipper wave draws a
 third flipper. The swimmer's tail, lost for two frames mid-spin, is put back
-from a neighbouring frame. The pet keeps the strips as palette indices (1 byte a
+from a neighbouring frame. The program keeps the strips as palette indices (1 byte a
 pixel) and scales the current frame to the seal's size as it draws it, keeping
 the frame's aspect.
 

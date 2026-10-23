@@ -1,6 +1,6 @@
 //! The words the status bubble says for each state, and their color.
 //!
-//! Kept in `%LOCALAPPDATA%\seal-pet\status.txt` as `key=value` lines:
+//! Kept in `%LOCALAPPDATA%\ai-mascot-hook\status.txt` as `key=value` lines:
 //! `loading`, `working`, `asking`, `completed`, `idle`, a text color for each as
 //! `color.<state>` (`#rrggbb`), and `autohide` (seconds the bubble stays up after each state
 //! change, 0 to keep it up). A plain `color`, from older versions, colors every state.
@@ -208,7 +208,7 @@ mod tests {
 
     #[test]
     fn set_writes_what_the_seal_reads() {
-        let dir = std::env::temp_dir().join(format!("seal-pet-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("ai-mascot-hook-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         super::write_state(&dir, "Working\n").unwrap();
         assert_eq!(std::fs::read(dir.join("state")).unwrap(), b"working");
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn colors_per_state() {
-        let dir = std::env::temp_dir().join(format!("seal-pet-colors-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("ai-mascot-hook-colors-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("status.txt");
         // an older file: one color for all, except where a state has its own

@@ -1,4 +1,4 @@
-# Seal Pet (ภาษาไทย)
+# ai-mascot-hook (ภาษาไทย)
 
 [English](README.md)
 
@@ -16,76 +16,127 @@
 
 ภาพตัวอย่างเป็น GIF เคลื่อนไหวจาก `assets/gif/`
 
-## สิ่งที่ต้องมี
+## สารบัญ
 
-- Windows 10 หรือใหม่กว่า แบบ 64 บิต หรือ macOS 11 ขึ้นไป (ชิป Apple หรือ Intel)
-  สำหรับ Mac ดูหัวข้อ [ใช้บน Mac](#ใช้บน-mac) ด้านล่าง
-- ไฟล์ `seal-pet.exe` จากหน้า Releases ไม่ต้องติดตั้งโปรแกรมอื่นเพิ่ม
-- Claude Code (ไม่บังคับ) ถ้าต้องการให้แมวน้ำเปลี่ยนท่าตาม Claude อัตโนมัติ
-  ใช้ได้ทั้ง Claude Code แบบ command line และใน Claude desktop app
-- ถ้าจะ build เอง ต้องมี Rust (stable)
+- [โปรแกรมทำงานอย่างไร](#โปรแกรมทำงานอย่างไร)
+- [ติดตั้งบน Windows](#ติดตั้งบน-windows)
+- [ติดตั้งบน macOS](#ติดตั้งบน-macos)
+- [วิธีใช้งาน](#วิธีใช้งาน)
+- [การเก็บ setting](#การเก็บ-setting)
+- [ถอนการติดตั้ง](#ถอนการติดตั้ง)
+- [แก้ปัญหา](#แก้ปัญหา)
 
-## ขั้นตอนติดตั้ง
+## โปรแกรมทำงานอย่างไร
 
-### 1. ดาวน์โหลดหรือ build โปรแกรม
+มีสองส่วนที่ทำงานร่วมกัน โดยไม่ได้คุยกันตรงๆ แต่ใช้ไฟล์เล็กๆ ไฟล์เดียวเป็นตัวกลาง
+เหมือนการฝากโน้ตไว้บนโต๊ะ
 
-**แบบดาวน์โหลด:** ดาวน์โหลด `seal-pet.exe` จาก
-[GitHub Releases](https://github.com/thanachaiakt/ai-mascot-status/releases)
-แล้ววางไว้ในโฟลเดอร์ที่จะเก็บถาวร เช่น `C:\Tools\seal-pet\seal-pet.exe`
-ไม่ควรวางไว้ใน Downloads เพราะ hook จะเรียกไฟล์จาก path นี้ตลอด
-
-**แบบ build เอง:**
-
-```powershell
-cargo build --release
+```text
+Claude Code ──(เรียก hook)──▶ ai-mascot-hook --set working ──▶ เขียนคำว่า "working"
+                                                               ลงในไฟล์ `state`
+                                                                      │
+แมวน้ำบนหน้าจอ ◀──(อ่านไฟล์ทุก 0.4 วินาที)────────────────────────────┘
+      └─ เห็นคำใหม่ แล้วเล่นท่าทางนั้น พร้อมแสดงกล่องข้อความ
 ```
 
-ได้ไฟล์ที่ `target\release\seal-pet.exe`
+1. **Hook (ผู้ส่งโน้ต)** Claude Code สั่งให้รันคำสั่งได้เมื่อมีเหตุการณ์เกิดขึ้น
+   เช่น คุณส่งข้อความ, Claude ใช้ tool, ขออนุญาต, หรือตอบเสร็จ
+   ตอนติดตั้ง โปรแกรมจะเพิ่มคำสั่งให้แต่ละเหตุการณ์ลงใน `~/.claude/settings.json`
+   คำสั่งนั้นคือ `ai-mascot-hook --set <สถานะ>` เขียนคำบอกสถานะหนึ่งคำลงไฟล์ `state` แล้วจบทันที
+2. **แมวน้ำ (ผู้อ่านโน้ต)** โปรแกรมเดียวกัน ถ้าเปิดโดยไม่ใส่อะไรต่อท้าย จะเป็นแมวน้ำบนหน้าจอ
+   มันเปิดไฟล์ `state` ดูทุก 400 มิลลิวินาที เจอคำใหม่ก็เปลี่ยนท่าตามนั้น
+   เปิดได้ทีละตัวเท่านั้น
 
-### 2. เปิดแมวน้ำ
+| เหตุการณ์ของ Claude Code | สถานะ | แมวน้ำทำอะไร |
+|---|---|---|
+| เริ่ม/จบ session (`SessionStart`, `SessionEnd`) | `idle` | นอนหลับ |
+| ส่งข้อความ (`UserPromptSubmit`) | `loading` | ตบมือ กำลังคิด |
+| ก่อน/หลังใช้ tool (`PreToolUse`, `PostToolUse`) | `working` | ว่ายน้ำใส่หมวกนิรภัย |
+| ขออนุญาต หรือรอคำตอบ (`PermissionRequest`, `Notification`) | `asking` | โบกมือเรียกคุณ |
+| ตอบเสร็จ (`Stop`) | `completed` | นอนหลับ เสร็จแล้ว |
 
-ดับเบิลคลิก `seal-pet.exe` แมวน้ำจะขึ้นที่มุมขวาล่างของจอ
-เปิดได้ทีละตัวเท่านั้น ถ้าเปิดซ้ำจะไม่มีตัวที่สองขึ้นมา
+Hook ทำงานเฉพาะ Claude Code ที่รันบนเครื่องนี้ และโปรแกรมไม่ส่งข้อมูลอะไรออกทางเน็ตเลย
 
-### 3. เชื่อมกับ Claude Code (ติดตั้ง hook)
+## ติดตั้งบน Windows
 
-เปิด PowerShell ในโฟลเดอร์โปรเจกต์ แล้วรัน
+ต้องใช้ Windows 10 ขึ้นไปแบบ 64 บิต ไม่ต้องติดตั้งโปรแกรมอื่นเพิ่ม
+Claude Code ไม่บังคับ (ถ้าไม่มี แมวน้ำก็ยังรันได้ และสั่งเองด้วย `--set` ได้)
 
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1
-```
+1. **ดาวน์โหลด** ไฟล์ `ai-mascot-hook.exe` จาก
+   [GitHub Releases](https://github.com/thanachaiakt/ai-mascot-status/releases)
+   วางไว้ในโฟลเดอร์ที่จะเก็บถาวร และ **path ต้องไม่มีช่องว่าง** เช่น
+   `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`
+   ไม่ควรวางไว้ใน Downloads เพราะ hook จะเรียกไฟล์จาก path นี้ตลอด ถ้าย้ายทีหลัง hook จะใช้ไม่ได้
+2. **เปิดแมวน้ำ** ดับเบิลคลิก `ai-mascot-hook.exe` แมวน้ำจะขึ้นบนหน้าจอ
+3. **ติดตั้ง hook** เปิด PowerShell แล้วรัน
 
-ถ้า `seal-pet.exe` ไม่ได้อยู่ที่ `target\release\` ให้บอก path ด้วย `-Exe`
+   ```powershell
+   C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --install-hooks
+   ```
 
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe C:\Tools\seal-pet\seal-pet.exe
-```
+   โปรแกรมจะสำรอง `~\.claude\settings.json` ไว้เป็น `settings.json.bak-<เวลา>` ก่อน
+   แล้วเพิ่ม hook ตามตารางด้านบน โดยเก็บ hook และค่าอื่นๆ ที่คุณมีอยู่ไว้ครบ
+   (ถ้ามี repo อยู่ในเครื่อง ใช้
+   `powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe <path>` แทนได้ ผลเหมือนกัน)
+4. **เปิด Claude Code ใหม่** ปิดแล้วเปิดใหม่ (หรือเปิด session ใหม่ใน Claude desktop app)
+   **session ที่เปิดไว้ก่อนติดตั้ง hook จะไม่เรียก hook** ลองส่งข้อความหา Claude
+   แมวน้ำจะเปลี่ยนเป็นท่าตบมือ (loading) ทันที
+5. **ให้เปิดเองตอนเข้า Windows (ไม่บังคับ)** กด `Win + R` พิมพ์ `shell:startup` แล้วกด Enter
+   จากนั้นสร้าง shortcut ของ `ai-mascot-hook.exe` ไว้ในโฟลเดอร์ที่เปิดขึ้นมา
 
-สคริปต์จะ:
+Claude desktop app ใช้ได้เช่นกัน แต่เป็นแอปแบบ MSIX ซึ่ง Windows จะย้ายไฟล์ที่ hook เขียนไปไว้ใน
+`%LOCALAPPDATA%\Packages\<แอป>\LocalCache\Local\ai-mascot-hook\state`
+แมวน้ำอ่านไฟล์ตรงนั้นให้ด้วย และตามไฟล์ที่ถูกเขียนล่าสุด
 
-- สำรอง `~\.claude\settings.json` ไว้เป็น `settings.json.bak-<เวลา>` ก่อน
-- เพิ่ม hook ที่สั่ง `seal-pet.exe --set <สถานะ>` ตามเหตุการณ์ของ Claude Code
-- เก็บ hook และค่าอื่นๆ ที่คุณมีอยู่ไว้ครบ
+## ติดตั้งบน macOS
 
-| เหตุการณ์ของ Claude Code | สถานะของแมวน้ำ |
-|---|---|
-| เริ่ม/จบ session | `idle` |
-| ส่งข้อความ | `loading` |
-| ก่อน/หลังใช้ tool | `working` |
-| ขออนุญาต หรือรอคำตอบ | `asking` |
-| ตอบเสร็จ | `completed` |
+ต้องใช้ macOS 11 ขึ้นไป (ชิป Apple หรือ Intel) ตอนนี้ยังไม่มีไฟล์สำเร็จรูปให้ดาวน์โหลดสำหรับ Mac
+จึงต้อง build เอง (ประมาณ 1 นาที) แมวน้ำไม่มีไอคอนใน Dock
 
-### 4. เริ่ม Claude Code ใหม่
+1. **ติดตั้ง Rust** จาก <https://rustup.rs> (ข้ามได้ถ้าสั่ง `cargo --version` ได้อยู่แล้ว)
+2. **Build** เปิด Terminal ในโฟลเดอร์โปรเจกต์ แล้วรัน
 
-ปิดแล้วเปิด Claude Code ใหม่ (หรือเปิด session ใหม่ใน Claude desktop app)
-**session ที่เปิดไว้ก่อนติดตั้ง hook จะไม่เรียก hook** ต้องเปิดใหม่เท่านั้น
+   ```bash
+   cargo build --release
+   ```
 
-ลองส่งข้อความหา Claude แมวน้ำจะเปลี่ยนเป็นท่าตบมือ (loading) ทันที
+3. **ย้ายโปรแกรมไปไว้ที่ถาวร** เพราะ hook เรียกโปรแกรมตาม path
 
-### 5. ให้เปิดเองตอนเข้า Windows (ไม่บังคับ)
+   ```bash
+   mkdir -p ~/bin && cp target/release/ai-mascot-hook ~/bin/
+   ```
 
-กด `Win + R` พิมพ์ `shell:startup` แล้วกด Enter
-จากนั้นสร้าง shortcut ของ `seal-pet.exe` ไว้ในโฟลเดอร์ที่เปิดขึ้นมา
+4. **ติดตั้ง hook** (รันจากไฟล์ที่ copy ไปไว้)
+
+   ```bash
+   ~/bin/ai-mascot-hook --install-hooks
+   ```
+
+5. **เปิดแมวน้ำ**
+
+   ```bash
+   ~/bin/ai-mascot-hook &
+   ```
+
+6. **เปิด Claude Code ใหม่** แล้วลองส่งข้อความ แมวน้ำจะเปลี่ยนเป็นท่าตบมือ
+7. **ให้เปิดเองตอน login (ไม่บังคับ)** สร้างไฟล์ `~/Library/LaunchAgents/com.ai-mascot-hook.plist`
+   (แก้ path ให้ตรงกับเครื่องคุณ) แล้วรัน
+   `launchctl load ~/Library/LaunchAgents/com.ai-mascot-hook.plist`
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key><string>com.ai-mascot-hook</string>
+     <key>ProgramArguments</key><array><string>/Users/you/bin/ai-mascot-hook</string></array>
+     <key>RunAtLoad</key><true/>
+   </dict>
+   </plist>
+   ```
+
+ส่วนที่เหลือใช้งานเหมือน Windows: การลาก การปรับขนาด เมนูปุ่มกลม หน้าตั้งค่าข้อความ
+และกล่องข้อความ (ปุ่ม **+** ในหน้าตั้งค่าจะเปิดหน้าเลือกสีของ macOS)
 
 ## วิธีใช้งาน
 
@@ -136,97 +187,63 @@ powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe C:\Tools\s
 
 ใช้ทดสอบ หรือเชื่อมกับโปรแกรมอื่นได้
 
-```powershell
-seal-pet.exe --set working
+```bash
+ai-mascot-hook --set working
 ```
 
 สถานะที่ใช้ได้: `loading`, `working`, `asking`, `completed`, `idle`
 
-## ใช้บน Mac
+## การเก็บ setting
 
-เวอร์ชัน Mac ใช้งานได้เหมือน Windows: แมวน้ำ ท่าทางตามสถานะ กล่องข้อความพร้อม animation
-การลาก การปรับขนาด เมนูปุ่มกลม หน้าตั้งค่าข้อความ และ hook ของ Claude Code
-ปุ่ม **+** ในหน้าตั้งค่าจะเปิดหน้าเลือกสีของ macOS
-การตั้งค่าเก็บไว้ใน `~/Library/Application Support/seal-pet/` (`status.txt` รูปแบบเดียวกับ
-Windows คัดลอกไฟล์จาก Windows มาใช้ได้)
+ทุกอย่างอยู่ในโฟลเดอร์เดียว ไม่มีการเก็บที่อื่น (ไม่ใช้ registry ไม่ส่งขึ้น cloud)
 
-### ติดตั้งบน Mac
-
-ต้องมี Rust ก่อน (ติดตั้งจาก https://rustup.rs) แล้วเปิด Terminal ในโฟลเดอร์โปรเจกต์
-
-```bash
-cargo build --release
-./target/release/seal-pet --install-hooks
-./target/release/seal-pet &
-```
-
-จากนั้นเปิด Claude Code ใหม่ แมวน้ำไม่มีไอคอนใน Dock ปิดได้จากปุ่ม **Close** ในเมนูของแมวน้ำ
-
-ถ้าย้ายไฟล์ `seal-pet` ไปไว้ที่อื่น ให้รัน `--install-hooks` จากที่ใหม่อีกครั้ง เพราะ hook เรียกโปรแกรมตาม path
-
-### ให้เปิดเองตอน login (ไม่บังคับ)
-
-สร้างไฟล์ `~/Library/LaunchAgents/com.seal-pet.plist` (แก้ path ให้ตรงกับเครื่องคุณ)
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>com.seal-pet</string>
-  <key>ProgramArguments</key><array><string>/Users/you/seal-pet/target/release/seal-pet</string></array>
-  <key>RunAtLoad</key><true/>
-</dict>
-</plist>
-```
-
-แล้วรัน `launchctl load ~/Library/LaunchAgents/com.seal-pet.plist`
-
-### ถอนการติดตั้งบน Mac
-
-```bash
-./target/release/seal-pet --remove-hooks
-launchctl unload ~/Library/LaunchAgents/com.seal-pet.plist   # ถ้าตั้งให้เปิดตอน login ไว้
-rm -rf ~/Library/Application\ Support/seal-pet
-```
-
-## ไฟล์ที่โปรแกรมเก็บ
-
-ทั้งหมดอยู่ใน `%LOCALAPPDATA%\seal-pet\` (Windows) หรือ `~/Library/Application Support/seal-pet/` (Mac)
-
-| ไฟล์ | เก็บอะไร |
+| ระบบ | โฟลเดอร์ |
 |---|---|
-| `state` | สถานะปัจจุบัน (hook เป็นคนเขียน) |
-| `placement` | ตำแหน่ง ขนาด และการเปิด/ปิดกล่องข้อความ |
-| `status.txt` | ข้อความ สีของแต่ละสถานะ และเวลา auto hide |
+| Windows | `%LOCALAPPDATA%\ai-mascot-hook\` |
+| macOS | `~/Library/Application Support/ai-mascot-hook/` |
+
+| ไฟล์ | เก็บอะไร | ใครเขียน |
+|---|---|---|
+| `state` | สถานะปัจจุบัน (`working` ฯลฯ) | hook (คำสั่ง `--set`) |
+| `placement` | ตำแหน่ง ขนาด และการเปิด/ปิดกล่องข้อความ | แมวน้ำ เมื่อคุณย้าย ปรับขนาด หรือสลับกล่องข้อความ |
+| `status.txt` | ข้อความ สีของแต่ละสถานะ และเวลา auto hide | ปุ่ม **Save** ในหน้าตั้งค่าข้อความ |
+
+`status.txt` เป็นข้อความธรรมดา รูปแบบเดียวกันทั้งสองระบบ คัดลอกข้าม Windows กับ Mac ได้
+ลบไฟล์ไหนทิ้ง ค่านั้นจะกลับเป็นค่าเริ่มต้น
+ส่วน hook เองอยู่ใน `~/.claude/settings.json` ของ Claude Code
 
 ## ถอนการติดตั้ง
 
-1. ปิดแมวน้ำ: คลิกที่ตัวแมวน้ำ แล้วกด **Close**
-2. ลบ hook ออกจาก Claude Code:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Remove
-   ```
-
-3. ลบ `seal-pet.exe` shortcut ใน `shell:startup` (ถ้ามี) และโฟลเดอร์ `%LOCALAPPDATA%\seal-pet`
+1. ปิดแมวน้ำ: คลิกที่ตัวแมวน้ำ แล้วกดกากบาท (**Close**)
+2. ลบ hook ออกจาก Claude Code (สำรอง `settings.json` ให้ก่อน)
+   - Windows: `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --remove-hooks`
+   - macOS: `~/bin/ai-mascot-hook --remove-hooks`
+3. ลบส่วนที่เหลือ
+   - Windows: shortcut ใน `shell:startup` (ถ้ามี) ไฟล์ exe และโฟลเดอร์ `%LOCALAPPDATA%\ai-mascot-hook`
+   - macOS: `launchctl unload ~/Library/LaunchAgents/com.ai-mascot-hook.plist` แล้วลบไฟล์นั้น
+     (ถ้าตั้งให้เปิดตอน login ไว้) ลบตัวโปรแกรม และรัน
+     `rm -rf ~/Library/Application\ Support/ai-mascot-hook`
 
 ## แก้ปัญหา
 
 **แมวน้ำไม่เปลี่ยนท่าตาม Claude**
 
 - เปิด Claude Code หรือ session ใหม่หรือยัง session ที่เปิดก่อนติดตั้ง hook จะไม่เรียก hook
-- ดูว่า hook ชี้ไปที่ `seal-pet.exe` ถูกที่ไหม ถ้าย้ายไฟล์ exe ให้รัน `install-hooks.ps1 -Exe <path ใหม่>` อีกครั้ง
-- ลองสั่ง `seal-pet.exe --set asking` ถ้าแมวน้ำเปลี่ยนท่า แปลว่าตัวโปรแกรมทำงานปกติ ปัญหาอยู่ที่ hook
+- ลองสั่ง `ai-mascot-hook --set asking` ถ้าแมวน้ำเปลี่ยนท่า แปลว่าตัวโปรแกรมทำงานปกติ ปัญหาอยู่ที่ hook
+  ถ้าย้ายไฟล์โปรแกรม ให้รัน `--install-hooks` จากที่ใหม่อีกครั้ง
 
 **ใช้ Claude desktop app แล้วไม่เปลี่ยน**
 
-Claude desktop app เป็นแอปแบบ MSIX Windows จะย้ายไฟล์ที่ hook เขียนไปไว้ใน
-`%LOCALAPPDATA%\Packages\<แอป>\LocalCache\Local\seal-pet\state`
-Seal Pet เวอร์ชันนี้อ่านไฟล์ตรงนั้นให้แล้ว ถ้ายังไม่เปลี่ยน ให้ใช้ `seal-pet.exe` ตัวล่าสุด
-แล้วเปิด session ใหม่
+ใช้ `ai-mascot-hook.exe` ตัวล่าสุดแล้วเปิด session ใหม่ (ดูเรื่อง MSIX ในหัวข้อ
+[ติดตั้งบน Windows](#ติดตั้งบน-windows))
 
-**build ไม่ผ่าน: `Access is denied` ตอน build**
+**อัปเกรดมาจากชื่อเดิม `seal-pet`**
+
+รัน `--install-hooks` หนึ่งครั้ง โปรแกรมจะแทนที่ hook `seal-pet` เดิมด้วยของใหม่
+ส่วน setting ตอนนี้อยู่ในโฟลเดอร์ `ai-mascot-hook` ถ้าอยากเก็บค่าเดิมไว้
+ให้คัดลอก `status.txt` และ `placement` จากโฟลเดอร์ `seal-pet` เดิมมาใส่
+
+**build ไม่ผ่าน: `Access is denied` ตอน build (Windows)**
 
 Windows ล็อกไฟล์ exe ที่กำลังรันอยู่ ปิดแมวน้ำก่อน build ใหม่
 
@@ -235,6 +252,11 @@ Windows ล็อกไฟล์ exe ที่กำลังรันอยู�
 - เปิด **Show status** ในเมนู Settings หรือในหน้าตั้งค่า
 - ถ้าเปิด **Auto hide** ไว้ กล่องจะซ่อนเองหลังครบเวลา และขึ้นใหม่เมื่อสถานะเปลี่ยน
 - ตอนเปิดเมนูของแมวน้ำ กล่องข้อความจะซ่อนชั่วคราว
+
+## Build เอง
+
+ต้องมี Rust (stable) แล้วรัน `cargo build --release` ได้ไฟล์ `target\release\ai-mascot-hook.exe` (Windows)
+หรือ `target/release/ai-mascot-hook` (macOS)
 
 รายละเอียดการทำงานทั้งหมดดูได้ที่ [SPEC.md](SPEC.md)
 และแผนภาพการเชื่อมต่อของโค้ดดูได้ที่ [docs/th/architecture.md](docs/th/architecture.md)

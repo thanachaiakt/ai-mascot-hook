@@ -1,8 +1,9 @@
-//! `seal-pet --install-hooks` / `--remove-hooks`: point Claude Code's hooks at this exe, or
+//! `ai-mascot-hook --install-hooks` / `--remove-hooks`: point Claude Code's hooks at this exe, or
 //! take them out again, in `~/.claude/settings.json`.
 //!
-//! Each hook is one plain command line, `<exe> --set <state>`. Earlier Seal Pet hooks (any
-//! whose command mentions `seal-pet`) are replaced; every other hook and setting is kept.
+//! Each hook is one plain command line, `<exe> --set <state>`. Earlier hooks (any whose command
+//! mentions `ai-mascot-hook`, or its former name `seal-pet`) are replaced; every other hook and
+//! setting is kept.
 //! The old file is saved beside it as `settings.json.bak-<unix time>` first.
 
 use std::fs;
@@ -31,7 +32,7 @@ pub fn run(install: bool) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("seal-pet: {e}");
+            eprintln!("ai-mascot-hook: {e}");
             1
         }
     }
@@ -71,8 +72,8 @@ fn apply(install: bool) -> Result<String, String> {
     let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(&path, text + "\n").map_err(|e| format!("cannot write {}: {e}", path.display()))?;
     Ok(match command {
-        Some(c) => format!("Seal Pet hooks installed in {} ({c}). Restart Claude Code to load them.", path.display()),
-        None => format!("Seal Pet hooks removed from {}.", path.display()),
+        Some(c) => format!("ai-mascot-hook hooks installed in {} ({c}). Restart Claude Code to load them.", path.display()),
+        None => format!("ai-mascot-hook hooks removed from {}.", path.display()),
     })
 }
 
@@ -86,9 +87,9 @@ fn read(path: &Path) -> Result<Value, String> {
     }
 }
 
-/// Drop every hook whose command runs Seal Pet, and any group or event left empty.
+/// Drop every hook whose command runs ai-mascot-hook, and any group or event left empty.
 fn remove_ours(hooks: &mut Map<String, Value>) {
-    let ours = |handler: &Value| handler.get("command").and_then(Value::as_str).is_some_and(|c| c.contains("seal-pet"));
+    let ours = |handler: &Value| handler.get("command").and_then(Value::as_str).is_some_and(|c| c.contains("ai-mascot-hook") || c.contains("seal-pet"));
     for groups in hooks.values_mut() {
         if let Some(groups) = groups.as_array_mut() {
             for group in groups.iter_mut() {
@@ -110,7 +111,7 @@ fn exe_command() -> Result<String, String> {
         // Git Bash and PowerShell quote differently, so the path goes unquoted, with forward
         // slashes, which both read the same way (tools\install-hooks.ps1 also handles spaces)
         if exe.contains(' ') {
-            return Err(format!("the path has spaces: {exe}\nMove seal-pet.exe to a folder without spaces, or use tools\\install-hooks.ps1."));
+            return Err(format!("the path has spaces: {exe}\nMove ai-mascot-hook.exe to a folder without spaces, or use tools\\install-hooks.ps1."));
         }
         Ok(exe.replace('\\', "/"))
     } else {
@@ -125,8 +126,8 @@ mod tests {
     #[test]
     fn keeps_other_hooks() {
         let mut hooks = json!({
-            "Stop": [{ "hooks": [{ "type": "command", "command": "/old/seal-pet --set completed" }, { "type": "command", "command": "say done" }] }],
-            "SessionStart": [{ "hooks": [{ "type": "command", "command": "seal-pet.exe --set idle" }] }]
+            "Stop": [{ "hooks": [{ "type": "command", "command": "/old/ai-mascot-hook --set completed" }, { "type": "command", "command": "say done" }] }],
+            "SessionStart": [{ "hooks": [{ "type": "command", "command": "ai-mascot-hook.exe --set idle" }] }]
         });
         super::remove_ours(hooks.as_object_mut().unwrap());
         assert_eq!(hooks, json!({ "Stop": [{ "hooks": [{ "type": "command", "command": "say done" }] }] }));

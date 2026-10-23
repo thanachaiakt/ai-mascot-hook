@@ -2,14 +2,14 @@
 
 [English](../en/technical.md)
 
-คำตอบสั้น ๆ สำหรับคำถามว่า "Seal Pet กินอะไรของเครื่องบ้าง" ส่วนแผนภาพการเชื่อมต่อของโค้ด
+คำตอบสั้น ๆ สำหรับคำถามว่า "ai-mascot-hook กินอะไรของเครื่องบ้าง" ส่วนแผนภาพการเชื่อมต่อของโค้ด
 ดูได้ที่ [architecture.md](architecture.md)
 
 ## hook กิน token ของ Claude ไหม
 
 **ไม่กินเลย** hook ไม่ได้เพิ่มอะไรเข้าไปใน context ของ Claude และไม่ได้เรียกโมเดลหรือใช้เน็ต
 
-- hook แต่ละตัวคือคำสั่งเดียว `seal-pet --set <สถานะ>` (ดู `src/hooks.rs`) เขียนคำหนึ่งคำ
+- hook แต่ละตัวคือคำสั่งเดียว `ai-mascot-hook --set <สถานะ>` (ดู `src/hooks.rs`) เขียนคำหนึ่งคำ
   ลงไฟล์ในเครื่องแล้วจบ
 - Claude Code จะเอา **stdout** ของ hook ใส่เข้าไปในบทสนทนาเฉพาะบางเหตุการณ์
   (`UserPromptSubmit`, `SessionStart`) แต่ `--set` ไม่พิมพ์อะไรออกมาเลย stdout เป็น 0 ไบต์
@@ -24,7 +24,7 @@
 
 | | macOS (Apple M2 Pro, วัดจริง) |
 |---|---|
-| รัน `seal-pet --set working` หนึ่งครั้ง | ประมาณ **5 ms** (เฉลี่ยจาก 200 ครั้ง) |
+| รัน `ai-mascot-hook --set working` หนึ่งครั้ง | ประมาณ **5 ms** (เฉลี่ยจาก 200 ครั้ง) |
 | หน่วยความจำสูงสุดระหว่างรัน | ประมาณ 8.5 MB คืนทั้งหมดเมื่อจบ |
 | ข้อมูลที่เขียน | คำสถานะ (4–9 ไบต์) เขียนลงไฟล์ชั่วคราวแล้ว rename ทับ `state` |
 
@@ -85,21 +85,21 @@ hook แต่ละตัวมี timeout 10 วินาที ต่อใ�
 | `status.txt` | หน้าแก้ข้อความสถานะ | ตอนกด Save |
 | `~/.claude/settings.json` | `--install-hooks` / `--remove-hooks` | เฉพาะตอนสั่งรัน โดยสำรองไฟล์เดิมเป็น `settings.json.bak-<เวลา>` ก่อน |
 
-โฟลเดอร์ข้อมูลอยู่ที่ `%LOCALAPPDATA%\seal-pet` บน Windows และ
-`~/Library/Application Support/seal-pet` บน macOS
+โฟลเดอร์ข้อมูลอยู่ที่ `%LOCALAPPDATA%\ai-mascot-hook` บน Windows และ
+`~/Library/Application Support/ai-mascot-hook` บน macOS
 
 ## วัดเองได้
 
 ```bash
 # จับเวลา hook หนึ่งครั้ง (macOS / Linux shell)
-time target/release/seal-pet --set working
+time target/release/ai-mascot-hook --set working
 
 # hook พิมพ์อะไรเข้า context ของ Claude บ้าง (ควรได้ 0)
-target/release/seal-pet --set working | wc -c
+target/release/ai-mascot-hook --set working | wc -c
 
 # CPU และหน่วยความจำของแมวน้ำที่รันอยู่บน macOS
-top -l 5 -s 2 -pid $(pgrep -f seal-pet | head -1) -stats cpu,mem
+top -l 5 -s 2 -pid $(pgrep -f ai-mascot-hook | head -1) -stats cpu,mem
 ```
 
 บน Windows ดูได้จากแท็บ Details ใน Task Manager หรือรัน
-`Get-Process seal-pet | Select-Object CPU, WorkingSet64` ใน PowerShell
+`Get-Process ai-mascot-hook | Select-Object CPU, WorkingSet64` ใน PowerShell

@@ -1,4 +1,4 @@
-"""Render Seal Pet's UI art: the round menu buttons.
+"""Render ai-mascot-hook's UI art: the round menu buttons.
 
     python tools/render_ui.py        (needs Pillow)
 

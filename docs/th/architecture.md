@@ -2,9 +2,9 @@
 
 [English](../en/architecture.md)
 
-Seal Pet เป็นโปรแกรม Rust ไฟล์เดียว ทำสองหน้าที่:
+ai-mascot-hook เป็นโปรแกรม Rust ไฟล์เดียว ทำสองหน้าที่:
 
-- **คำสั่งสำหรับ hook:** `seal-pet --set <สถานะ>` เขียนคำหนึ่งคำลงไฟล์แล้วจบทันที
+- **คำสั่งสำหรับ hook:** `ai-mascot-hook --set <สถานะ>` เขียนคำหนึ่งคำลงไฟล์แล้วจบทันที
 - **ตัวแมวน้ำ:** ถ้ารันโดยไม่ใส่ argument จะเปิดหน้าต่าง คอยดูไฟล์นั้น แล้วเล่นท่าทางและแสดงกล่องข้อความตามสถานะ
 
 โค้ดส่วนใหญ่ใช้ร่วมกันทั้งสองระบบ มีแค่ส่วนจัดการหน้าต่างที่เขียนแยกสำหรับ Windows และ macOS
@@ -13,8 +13,8 @@ Seal Pet เป็นโปรแกรม Rust ไฟล์เดียว ท�
 
 ```mermaid
 flowchart LR
-    CC["Claude Code<br/>(CLI หรือ desktop app)"] -- "เหตุการณ์ hook<br/>UserPromptSubmit, PreToolUse, Stop, …" --> H["seal-pet --set &lt;สถานะ&gt;"]
-    H -- "status::write_state<br/>เขียนไฟล์ชั่วคราวแล้ว rename" --> F[("ไฟล์ state<br/>%LOCALAPPDATA%\seal-pet\state<br/>~/Library/Application Support/seal-pet/state")]
+    CC["Claude Code<br/>(CLI หรือ desktop app)"] -- "เหตุการณ์ hook<br/>UserPromptSubmit, PreToolUse, Stop, …" --> H["ai-mascot-hook --set &lt;สถานะ&gt;"]
+    H -- "status::write_state<br/>เขียนไฟล์ชั่วคราวแล้ว rename" --> F[("ไฟล์ state<br/>%LOCALAPPDATA%\ai-mascot-hook\state<br/>~/Library/Application Support/ai-mascot-hook/state")]
     F -- "อ่านทุก 400 ms<br/>store::read_state" --> S["แมวน้ำที่รันอยู่<br/>win::App / mac::App"]
     S -- "seal::clip_for" --> A["ภาพเคลื่อนไหว"]
     S -- "bubble::Bubble" --> B["กล่องข้อความสถานะ"]
@@ -31,7 +31,7 @@ flowchart LR
 | `Stop` | `completed` | นอนหลับ |
 
 Claude desktop app เป็นแอปแบบ MSIX Windows จะย้ายไฟล์ state ที่ hook ของแอปนี้เขียน ไปไว้ที่
-`%LOCALAPPDATA%\Packages\<แอป>\LocalCache\Local\seal-pet\state`
+`%LOCALAPPDATA%\Packages\<แอป>\LocalCache\Local\ai-mascot-hook\state`
 `store::state_files` หาไฟล์ที่ถูกย้ายพวกนี้ด้วย และ `store::read_state` จะใช้ไฟล์ที่เขียนล่าสุด
 
 ## 2. แผนผัง module
@@ -107,9 +107,9 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    start(["seal-pet"]) --> args{"argument แรก"}
+    start(["ai-mascot-hook"]) --> args{"argument แรก"}
     args -- "--set สถานะ" --> write["status::write_state"] --> exit0(["จบ"])
-    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>สำรองไฟล์ ลบ hook เก่าของ Seal Pet<br/>เพิ่ม hook 8 ตัว"] --> exit1(["จบ"])
+    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>สำรองไฟล์ ลบ hook เก่าของ ai-mascot-hook<br/>เพิ่ม hook 8 ตัว"] --> exit1(["จบ"])
     args -- "ไม่มี" --> plat{"ระบบ"}
     plat -- Windows --> wrun["win::run"]
     plat -- macOS --> mrun["mac::run"]
@@ -200,7 +200,7 @@ flowchart TD
 ```mermaid
 flowchart LR
     hooks2["hooks::run"] -- "แก้ไข" --> settings[("~/.claude/settings.json")]
-    setcmd["seal-pet --set"] -- "เขียน" --> state[("state")]
+    setcmd["ai-mascot-hook --set"] -- "เขียน" --> state[("state")]
     state -- "อ่าน" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y ความสูง show_status")]
     placement -- "read_placement ตอนเริ่ม" --> app2
@@ -209,7 +209,7 @@ flowchart LR
 ```
 
 ทุกไฟล์ยกเว้น `settings.json` อยู่ใน folder ข้อมูล (`store::data_dir`)
-คือ `%LOCALAPPDATA%\seal-pet` บน Windows และ `~/Library/Application Support/seal-pet` บน macOS
+คือ `%LOCALAPPDATA%\ai-mascot-hook` บน Windows และ `~/Library/Application Support/ai-mascot-hook` บน macOS
 
 ## จะแก้อะไร ดูที่ไหน
 

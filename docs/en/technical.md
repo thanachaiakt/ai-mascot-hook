@@ -2,21 +2,21 @@
 
 [ภาษาไทย](../th/technical.md)
 
-Short answers to "what does Seal Pet cost me?" For how the modules connect, see
+Short answers to "what does ai-mascot-hook cost me?" For how the modules connect, see
 [architecture.md](architecture.md).
 
 ## Does it use Claude tokens?
 
 **No.** The hooks add nothing to Claude's context and make no model or network calls.
 
-- Each hook is one command, `seal-pet --set <state>` (see `src/hooks.rs`). It writes one
+- Each hook is one command, `ai-mascot-hook --set <state>` (see `src/hooks.rs`). It writes one
   word to a local file and exits.
 - Claude Code adds a hook's **stdout** to the conversation only for some events
   (`UserPromptSubmit`, `SessionStart`). `--set` prints nothing: stdout is 0 bytes, so 0
   tokens are added.
 - It exits with code 0 and prints nothing to stderr, so Claude never sees an error message
   either. An unknown state word exits with code 2 and still prints nothing.
-- Seal Pet has no network code: no API key, no telemetry, no update check.
+- ai-mascot-hook has no network code: no API key, no telemetry, no update check.
 
 The only thing a hook costs is time: Claude Code waits for the command before going on.
 
@@ -24,7 +24,7 @@ The only thing a hook costs is time: Claude Code waits for the command before go
 
 | | macOS (Apple M2 Pro, measured) |
 |---|---|
-| One `seal-pet --set working` run | about **5 ms** (average of 200 runs) |
+| One `ai-mascot-hook --set working` run | about **5 ms** (average of 200 runs) |
 | Peak memory of that run | about 8.5 MB, freed when it exits |
 | Data written | the state word (4–9 bytes), to a temporary file that is then renamed over `state` |
 
@@ -91,21 +91,21 @@ Where the cost comes from:
 | `status.txt` | the status editor | when you press Save |
 | `~/.claude/settings.json` | `--install-hooks` / `--remove-hooks` | only when you run them; the old file is saved as `settings.json.bak-<time>` first |
 
-The data folder is `%LOCALAPPDATA%\seal-pet` on Windows and
-`~/Library/Application Support/seal-pet` on macOS.
+The data folder is `%LOCALAPPDATA%\ai-mascot-hook` on Windows and
+`~/Library/Application Support/ai-mascot-hook` on macOS.
 
 ## Measure it yourself
 
 ```bash
 # time a hook run (macOS / Linux shell)
-time target/release/seal-pet --set working
+time target/release/ai-mascot-hook --set working
 
 # what the hook prints into Claude's context (expect 0)
-target/release/seal-pet --set working | wc -c
+target/release/ai-mascot-hook --set working | wc -c
 
 # CPU and memory of the running seal on macOS
-top -l 5 -s 2 -pid $(pgrep -f seal-pet | head -1) -stats cpu,mem
+top -l 5 -s 2 -pid $(pgrep -f ai-mascot-hook | head -1) -stats cpu,mem
 ```
 
 On Windows, use Task Manager's Details tab, or
-`Get-Process seal-pet | Select-Object CPU, WorkingSet64` in PowerShell.
+`Get-Process ai-mascot-hook | Select-Object CPU, WorkingSet64` in PowerShell.

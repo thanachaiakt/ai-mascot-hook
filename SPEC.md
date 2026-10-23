@@ -1,15 +1,15 @@
-# Seal Pet specification
+# ai-mascot-hook specification
 
 ## Purpose and platform
 
-Seal Pet is a desktop companion for Windows and macOS that displays a small
+ai-mascot-hook is a desktop companion for Windows and macOS that displays a small
 animated seal and reflects a status supplied by Claude Code hooks. It runs as a
 single instance, without a taskbar button or Dock icon, in an always-on-top,
 borderless window with transparent pixels. The seal does not activate other
 windows when shown. The status bubble does not intercept pointer input.
 
-The program displays a status that hooks write. `seal-pet --set <state>` writes
-the status file; `seal-pet --install-hooks` points Claude Code's hooks at the
+The program displays a status that hooks write. `ai-mascot-hook --set <state>` writes
+the status file; `ai-mascot-hook --install-hooks` points Claude Code's hooks at the
 program (`--remove-hooks` takes them out), and on Windows
 `tools/install-hooks.ps1` does the same.
 
@@ -34,15 +34,15 @@ differences:
 The status input file is:
 
 ```text
-%LOCALAPPDATA%\seal-pet\state
+%LOCALAPPDATA%\ai-mascot-hook\state
 ```
 
 Hooks run by a packaged (MSIX) app, such as the Claude desktop app, have that
-write redirected to `%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\seal-pet\state`.
-Seal Pet also reads those copies (looking for new ones every 5 s) and follows
+write redirected to `%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\ai-mascot-hook\state`.
+ai-mascot-hook also reads those copies (looking for new ones every 5 s) and follows
 whichever state file was modified last.
 
-The file contains a state name. Seal Pet checks for changes every 400 ms. It
+The file contains a state name. ai-mascot-hook checks for changes every 400 ms. It
 accepts UTF-8 (with or without a BOM) and UTF-16 (as PowerShell's `>` and
 `Out-File` write), ignores surrounding whitespace and quotes, and matches names
 in any case. A file that holds no word yet (read mid-write) is read again on the
@@ -145,9 +145,9 @@ The preset colors are `#18346e`, `#2f80ed`, `#0f9d8a`, `#2e9e44`, `#e07b00`,
 
 ## Persistent data
 
-Program data is stored in `%LOCALAPPDATA%\seal-pet` on Windows and in
-`~/Library/Application Support/seal-pet` on macOS (where the status file is
-`~/Library/Application Support/seal-pet/state`). If that location is not
+Program data is stored in `%LOCALAPPDATA%\ai-mascot-hook` on Windows and in
+`~/Library/Application Support/ai-mascot-hook` on macOS (where the status file is
+`~/Library/Application Support/ai-mascot-hook/state`). If that location is not
 available, the program uses the system temporary directory as its data base.
 
 ### Placement file
@@ -216,9 +216,9 @@ Build the release executable with:
 cargo build --release
 ```
 
-The resulting executable is `target/release/seal-pet.exe` on Windows and
-`target/release/seal-pet` on macOS. A Windows shortcut to it may be placed in
-`shell:startup` to run Seal Pet at sign-in; on macOS a LaunchAgent can start it
+The resulting executable is `target/release/ai-mascot-hook.exe` on Windows and
+`target/release/ai-mascot-hook` on macOS. A Windows shortcut to it may be placed in
+`shell:startup` to run ai-mascot-hook at sign-in; on macOS a LaunchAgent can start it
 (see the README).
 
 The source is split by purpose: `seal.rs` (sizes, timings, clips), `store.rs`

@@ -1,9 +1,9 @@
-//! Seal Pet: a small seal that floats on the desktop and acts out what Claude Code is doing.
+//! ai-mascot-hook: a small seal that floats on the desktop and acts out what Claude Code is doing.
 //!
-//! Claude Code hooks run `seal-pet --set <state>` (loading, working, asking, completed,
+//! Claude Code hooks run `ai-mascot-hook --set <state>` (loading, working, asking, completed,
 //! idle), which writes the word to a state file; the running seal polls that file and plays
 //! the matching animation in a borderless, transparent, always-on-top window, with an
-//! optional status bubble. `seal-pet --install-hooks` sets those hooks up.
+//! optional status bubble. `ai-mascot-hook --install-hooks` sets those hooks up.
 //!
 //! The parts every platform shares live here (the clips, the state file, the bubble, the
 //! hooks); `win` and `mac` hold each platform's windows.

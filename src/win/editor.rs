@@ -41,7 +41,7 @@ impl App {
             let hwnd = CreateWindowExW(
                 WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
                 wide("SealPetEditor").as_ptr(),
-                wide("Seal Pet · Status text").as_ptr(),
+                wide("ai-mascot-hook · Status text").as_ptr(),
                 WS_POPUP | WS_CLIPCHILDREN,
                 wx,
                 wy,

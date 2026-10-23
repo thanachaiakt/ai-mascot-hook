@@ -1,4 +1,4 @@
-//! Where Seal Pet keeps things: the state file the hooks write, and the seal's placement.
+//! Where ai-mascot-hook keeps things: the state file the hooks write, and the seal's placement.
 
 use std::fs;
 use std::path::PathBuf;
@@ -7,14 +7,14 @@ use std::time::SystemTime;
 use crate::seal::{MAX_H, MIN_H};
 use crate::status::parse_state;
 
-/// `%LOCALAPPDATA%\seal-pet` on Windows, `~/Library/Application Support/seal-pet` on a Mac;
+/// `%LOCALAPPDATA%\ai-mascot-hook` on Windows, `~/Library/Application Support/ai-mascot-hook` on a Mac;
 /// the system's temporary folder stands in when neither can be found.
 pub fn data_dir() -> PathBuf {
     #[cfg(windows)]
     let base = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
     #[cfg(not(windows))]
     let base = std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library").join("Application Support"));
-    base.unwrap_or_else(std::env::temp_dir).join("seal-pet")
+    base.unwrap_or_else(std::env::temp_dir).join("ai-mascot-hook")
 }
 
 /// Every state file a hook may have written. Hooks run by a packaged (MSIX) app, such as
@@ -38,7 +38,7 @@ pub fn state_files() -> Vec<PathBuf> {
             if let Some(base) = std::env::var_os("LOCALAPPDATA") {
                 if let Ok(packages) = fs::read_dir(PathBuf::from(base).join("Packages")) {
                     for package in packages.flatten() {
-                        let file = package.path().join("LocalCache").join("Local").join("seal-pet").join("state");
+                        let file = package.path().join("LocalCache").join("Local").join("ai-mascot-hook").join("state");
                         if file.is_file() {
                             files.push(file);
                         }

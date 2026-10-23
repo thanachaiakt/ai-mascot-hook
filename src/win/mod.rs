@@ -529,7 +529,7 @@ unsafe fn layered_window(class: &str, proc_: WNDPROC, ex_style: u32) -> HWND {
     CreateWindowExW(
         WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | ex_style,
         wide(class).as_ptr(),
-        wide("Seal Pet").as_ptr(),
+        wide("ai-mascot-hook").as_ptr(),
         WS_POPUP,
         0,
         0,

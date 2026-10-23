@@ -1,4 +1,4 @@
-# Seal Pet
+# ai-mascot-hook
 
 A desktop seal (Windows and macOS) that plays an animation for the state Claude Code
 hooks write. `SPEC.md` is the behavior contract; `README.md` and `README.th.md` (Thai)
@@ -38,14 +38,14 @@ Per platform:
 ## Commands
 
 ```bash
-cargo build --release                               # Windows exe: target/release/seal-pet.exe
+cargo build --release                               # Windows exe: target/release/ai-mascot-hook.exe
 cargo test --release
 cargo check --target aarch64-apple-darwin           # Mac can only be compile-checked here
 cargo check --target x86_64-apple-darwin
-target/release/seal-pet.exe --set asking            # drive the running seal by hand
+target/release/ai-mascot-hook.exe --set asking            # drive the running seal by hand
 ```
 
-- Windows locks a running exe: run `Stop-Process -Name seal-pet` before a release build.
+- Windows locks a running exe: run `Stop-Process -Name ai-mascot-hook` before a release build.
   Relaunch it afterwards.
 - Every change must build warning-free on all three targets. Code used by only one
   platform gets `#[cfg(...)]` or `#[cfg_attr(not(windows), allow(dead_code))]`.
@@ -70,7 +70,7 @@ target/release/seal-pet.exe --set asking            # drive the running seal by 
 ## Verifying UI changes on Windows
 
 Launch the exe and take screenshots with `System.Drawing` `CopyFromScreen`. Read the
-seal's position from `%LOCALAPPDATA%\seal-pet\placement`. To click inside the editor,
+seal's position from `%LOCALAPPDATA%\ai-mascot-hook\placement`. To click inside the editor,
 post `WM_LBUTTONDOWN` from a DPI-aware process (`SetProcessDPIAware`); otherwise the
 coordinates get scaled and miss. `PostMessage(mascot, WM_APP+1, 1, 0)` opens the editor.
 If you change `status.txt` or `placement` while testing, back them up first and restore

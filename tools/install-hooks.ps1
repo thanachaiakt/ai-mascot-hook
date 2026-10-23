@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-Point Claude Code's hooks at Seal Pet, so the seal follows what Claude is doing.
+Point Claude Code's hooks at ai-mascot-hook, so the seal follows what Claude is doing.
 
 .DESCRIPTION
-Adds hooks to ~/.claude/settings.json that run `seal-pet.exe --set <state>`:
+Adds hooks to ~/.claude/settings.json that run `ai-mascot-hook.exe --set <state>`:
 
     SessionStart       -> idle
     UserPromptSubmit   -> loading     (Claude is thinking)
@@ -18,21 +18,21 @@ Each hook is one plain command line, `<exe> --set <state>`, which every Claude C
 version runs (the newer exec form with a separate `args` list is not used, since older
 versions ignore `args` and would start the exe with no state at all). The exe path is
 written with forward slashes and without quotes, so it means the same thing to Git Bash
-and to PowerShell, whichever shell Claude Code picks. Earlier Seal Pet hooks (any hook whose command mentions
-"seal-pet") are replaced; every other hook and setting is kept. The old file is saved
+and to PowerShell, whichever shell Claude Code picks. Earlier ai-mascot-hook hooks (any hook whose command mentions
+"ai-mascot-hook" or the former "seal-pet") are replaced; every other hook and setting is kept. The old file is saved
 next to it as settings.json.bak-<time> first.
 
 .PARAMETER Exe
-The seal-pet.exe the hooks run. Defaults to target\release\seal-pet.exe in this repo.
+The ai-mascot-hook.exe the hooks run. Defaults to target\release\ai-mascot-hook.exe in this repo.
 
 .PARAMETER Remove
-Take Seal Pet's hooks out instead of adding them.
+Take ai-mascot-hook's hooks out instead of adding them.
 
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1
 #>
 param(
-    [string]$Exe = (Join-Path $PSScriptRoot '..\target\release\seal-pet.exe'),
+    [string]$Exe = (Join-Path $PSScriptRoot '..\target\release\ai-mascot-hook.exe'),
     [switch]$Remove
 )
 $ErrorActionPreference = 'Stop'
@@ -41,7 +41,7 @@ $settingsPath = Join-Path $env:USERPROFILE '.claude\settings.json'
 
 if (-not $Remove) {
     if (-not (Test-Path $Exe)) {
-        throw "Not found: $Exe`nBuild it first (cargo build --release) or pass -Exe <path to seal-pet.exe>."
+        throw "Not found: $Exe`nBuild it first (cargo build --release) or pass -Exe <path to ai-mascot-hook.exe>."
     }
     $Exe = (Resolve-Path $Exe).Path
     # a path with spaces would need quoting, and Git Bash and PowerShell quote differently:
@@ -49,7 +49,7 @@ if (-not $Remove) {
     if ($Exe -match ' ') {
         $short = (New-Object -ComObject Scripting.FileSystemObject).GetFile($Exe).ShortPath
         if ($short -match ' ') {
-            throw "The exe path has spaces and no short (8.3) name: $Exe`nCopy seal-pet.exe to a folder without spaces and pass -Exe <that path>."
+            throw "The exe path has spaces and no short (8.3) name: $Exe`nCopy ai-mascot-hook.exe to a folder without spaces and pass -Exe <that path>."
         }
         $Exe = $short
     }
@@ -73,10 +73,10 @@ if (-not ($settings.PSObject.Properties.Name -contains 'hooks') -or $null -eq $s
 $hooks = $settings.hooks
 
 function Test-SealPet($handler) {
-    ("$($handler.command) $($handler.args -join ' ')") -match 'seal-pet'
+    ("$($handler.command) $($handler.args -join ' ')") -match 'ai-mascot-hook|seal-pet'
 }
 
-# ---- drop any earlier Seal Pet hooks -------------------------------------------------
+# ---- drop any earlier ai-mascot-hook hooks -------------------------------------------------
 foreach ($event in @($hooks.PSObject.Properties.Name)) {
     $groups = @()
     foreach ($group in @($hooks.$event)) {
@@ -117,11 +117,11 @@ $json = $settings | ConvertTo-Json -Depth 32
 [IO.File]::WriteAllText($settingsPath, $json, (New-Object Text.UTF8Encoding $false))
 
 if ($Remove) {
-    Write-Host "Removed Seal Pet's hooks from $settingsPath"
+    Write-Host "Removed ai-mascot-hook's hooks from $settingsPath"
 } else {
     # prove the exe can write the state the seal reads (it is a GUI exe: wait for it explicitly)
     Start-Process -FilePath $Exe -ArgumentList '--set', 'idle' -Wait -NoNewWindow
-    $state = Join-Path $env:LOCALAPPDATA 'seal-pet\state'
+    $state = Join-Path $env:LOCALAPPDATA 'ai-mascot-hook\state'
     Write-Host "Hooks installed in $settingsPath -> $Exe"
     Write-Host "Test write: $state = '$([IO.File]::ReadAllText($state))'"
     Write-Host 'Restart Claude Code (or open /hooks) so it loads the new hooks.'

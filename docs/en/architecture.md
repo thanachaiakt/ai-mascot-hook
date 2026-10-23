@@ -2,9 +2,9 @@
 
 [ภาษาไทย](../th/architecture.md)
 
-Seal Pet is one Rust binary with two jobs:
+ai-mascot-hook is one Rust binary with two jobs:
 
-- **The hook command.** `seal-pet --set <state>` writes one word to a file and exits at once.
+- **The hook command.** `ai-mascot-hook --set <state>` writes one word to a file and exits at once.
 - **The seal.** With no arguments, it opens the windows, watches that file, and plays the
   matching animation and bubble.
 
@@ -15,8 +15,8 @@ and for macOS.
 
 ```mermaid
 flowchart LR
-    CC["Claude Code<br/>(CLI or desktop app)"] -- "hook event<br/>UserPromptSubmit, PreToolUse, Stop, …" --> H["seal-pet --set &lt;state&gt;"]
-    H -- "status::write_state<br/>temp file + rename" --> F[("state file<br/>%LOCALAPPDATA%\seal-pet\state<br/>~/Library/Application Support/seal-pet/state")]
+    CC["Claude Code<br/>(CLI or desktop app)"] -- "hook event<br/>UserPromptSubmit, PreToolUse, Stop, …" --> H["ai-mascot-hook --set &lt;state&gt;"]
+    H -- "status::write_state<br/>temp file + rename" --> F[("state file<br/>%LOCALAPPDATA%\ai-mascot-hook\state<br/>~/Library/Application Support/ai-mascot-hook/state")]
     F -- "polled every 400 ms<br/>store::read_state" --> S["running seal<br/>win::App / mac::App"]
     S -- "seal::clip_for" --> A["animation strip"]
     S -- "bubble::Bubble" --> B["status bubble"]
@@ -33,7 +33,7 @@ flowchart LR
 | `Stop` | `completed` | napping |
 
 The Claude desktop app is a packaged (MSIX) app. Windows redirects the state file that its
-hooks write into `%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\seal-pet\state`.
+hooks write into `%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\ai-mascot-hook\state`.
 `store::state_files` also finds those copies, and `store::read_state` follows whichever
 file was written most recently.
 
@@ -112,9 +112,9 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    start(["seal-pet"]) --> args{"first argument"}
+    start(["ai-mascot-hook"]) --> args{"first argument"}
     args -- "--set state" --> write["status::write_state"] --> exit0(["exit"])
-    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>back up, drop old Seal Pet hooks,<br/>add 8 hooks"] --> exit1(["exit"])
+    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>back up, drop old ai-mascot-hook hooks,<br/>add 8 hooks"] --> exit1(["exit"])
     args -- "none" --> plat{"platform"}
     plat -- Windows --> wrun["win::run"]
     plat -- macOS --> mrun["mac::run"]
@@ -201,7 +201,7 @@ comes from `anim.rs`.
 ```mermaid
 flowchart LR
     hooks2["hooks::run"] -- "edits" --> settings[("~/.claude/settings.json")]
-    setcmd["seal-pet --set"] -- "writes" --> state[("state")]
+    setcmd["ai-mascot-hook --set"] -- "writes" --> state[("state")]
     state -- "read" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y height show_status")]
     placement -- "read_placement at start" --> app2
@@ -210,7 +210,7 @@ flowchart LR
 ```
 
 All of these files except `settings.json` live in the data folder (`store::data_dir`):
-`%LOCALAPPDATA%\seal-pet` on Windows, `~/Library/Application Support/seal-pet` on macOS.
+`%LOCALAPPDATA%\ai-mascot-hook` on Windows, `~/Library/Application Support/ai-mascot-hook` on macOS.
 
 ## Where to change things
 

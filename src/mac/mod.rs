@@ -558,7 +558,7 @@ fn single_instance() -> Option<UnixListener> {
 
 pub fn run() {
     let Some(_instance) = single_instance() else { return };
-    let mtm = MainThreadMarker::new().expect("Seal Pet runs on the main thread");
+    let mtm = MainThreadMarker::new().expect("ai-mascot-hook runs on the main thread");
     let app = NSApplication::sharedApplication(mtm);
     // no Dock icon or menu bar: the seal is all there is
     app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
