@@ -6,6 +6,13 @@ A small seal that floats on the Windows or macOS desktop and acts out what Claud
 claps while loading, swims in a hard hat while working, waves from an ice floe while asking,
 and naps when the turn is done or idle.
 
+<p align="center">
+  <img src="assets/gif/loading.gif" width="120" alt="Seal clapping">
+  <img src="assets/gif/working.gif" width="120" alt="Seal swimming in a hard hat">
+  <img src="assets/gif/asking.gif" width="120" alt="Seal waving from an ice floe">
+  <img src="assets/gif/completed.gif" width="120" alt="Seal napping">
+</p>
+
 - Borderless, transparent around the seal, always on top, no taskbar button.
 - Pointing at the seal shows the system's hand pointer.
 - **Click** the seal: a menu of three round buttons pops up above it
@@ -143,16 +150,16 @@ installer is included.
 ## The art
 
 Each state image is an animated frame strip. Seal Pet plays the matching strip
-for the current state. The previews below show the first frame; click a preview
-to open its full animation strip; `assets/gif/` has each state as a transparent GIF.
+for the current state. The previews below are the animated GIFs from `assets/gif/`
+(transparent); click one to open its full frame strip.
 
 | State | Image | What the seal does |
 |---|---|---|
-| `loading` | [![Loading animation preview](assets/previews/loading.png)](assets/loading.png) | Claps happily and flaps its flippers while thinking. |
-| `working` | [![Working animation preview](assets/previews/working.png)](assets/working.png) | Swims and spins in a hard hat, shovel in hand, while working. Shown 1.15× larger, since the swimmer is drawn smaller than the other seals; the window reaches past the seal's box so the whole swimmer stays in view at the edges and mid-spin. |
-| `asking` | [![Asking animation preview](assets/previews/asking.png)](assets/asking.png) | Sits on an ice floe and waves to ask for input. |
-| `completed` | [![Completed animation preview](assets/previews/completed.png)](assets/completed.png) | Naps under floating zZ after the turn is done. |
-| `idle` | [![Idle animation preview](assets/previews/completed.png)](assets/completed.png) | Uses the same napping animation while idle. |
+| `loading` | [<img src="assets/gif/loading.gif" width="120" alt="Loading animation preview">](assets/loading.png) | Claps happily and flaps its flippers while thinking. |
+| `working` | [<img src="assets/gif/working.gif" width="120" alt="Working animation preview">](assets/working.png) | Swims and spins in a hard hat, shovel in hand, while working. Shown 1.15× larger, since the swimmer is drawn smaller than the other seals; the window reaches past the seal's box so the whole swimmer stays in view at the edges and mid-spin. |
+| `asking` | [<img src="assets/gif/asking.gif" width="120" alt="Asking animation preview">](assets/asking.png) | Sits on an ice floe and waves to ask for input. |
+| `completed` | [<img src="assets/gif/completed.gif" width="120" alt="Completed animation preview">](assets/completed.png) | Naps under floating zZ after the turn is done. |
+| `idle` | [<img src="assets/gif/completed.gif" width="120" alt="Idle animation preview">](assets/completed.png) | Uses the same napping animation while idle. |
 
 An unknown or missing state also uses the napping animation. The strips are
 260 x 260 px (1:1) per frame, cut from the 2 x 2 clip `art/states.mp4` (not kept in the repository; one
