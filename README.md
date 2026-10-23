@@ -171,4 +171,5 @@ The scripts need Pillow; `video_states.py` also needs NumPy, SciPy and `ffmpeg`
 on `PATH`. Re-run them after changing the art, then rebuild.
 
 For the full behavior, input format, and persistence contract, see
-[SPEC.md](SPEC.md).
+[SPEC.md](SPEC.md). For how the code fits together (with diagrams), see
+[docs/architecture.md](docs/architecture.md).

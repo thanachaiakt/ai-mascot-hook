@@ -2,7 +2,8 @@
 
 A desktop seal (Windows and macOS) that plays an animation for the state Claude Code
 hooks write. `SPEC.md` is the behavior contract; `README.md` and `README.th.md` (Thai)
-are the user docs.
+are the user docs. `docs/architecture.md` (and `.th.md`) diagrams how the modules
+connect; update it when modules or data flow change.
 
 ## Layout
 

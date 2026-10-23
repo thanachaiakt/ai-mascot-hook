@@ -1,0 +1,214 @@
+# How the code fits together
+
+[ภาษาไทย](architecture.th.md)
+
+Seal Pet is one Rust binary with two jobs:
+
+- **The hook command.** `seal-pet --set <state>` writes one word to a file and exits at once.
+- **The seal.** With no arguments, it opens the windows, watches that file, and plays the
+  matching animation and bubble.
+
+Most of the code is shared. Only the windowing layer is written separately for Windows
+and for macOS.
+
+## 1. From Claude Code to the screen
+
+```mermaid
+flowchart LR
+    CC["Claude Code<br/>(CLI or desktop app)"] -- "hook event<br/>UserPromptSubmit, PreToolUse, Stop, …" --> H["seal-pet --set &lt;state&gt;"]
+    H -- "status::write_state<br/>temp file + rename" --> F[("state file<br/>%LOCALAPPDATA%\seal-pet\state<br/>~/Library/Application Support/seal-pet/state")]
+    F -- "polled every 400 ms<br/>store::read_state" --> S["running seal<br/>win::App / mac::App"]
+    S -- "seal::clip_for" --> A["animation strip"]
+    S -- "bubble::Bubble" --> B["status bubble"]
+    A --> W["seal window"]
+    B --> BW["bubble window"]
+```
+
+| Claude Code event | State | Animation |
+|---|---|---|
+| `SessionStart`, `SessionEnd` | `idle` | napping |
+| `UserPromptSubmit` | `loading` | clapping |
+| `PreToolUse`, `PostToolUse` | `working` | swimming in a hard hat |
+| `PermissionRequest`, `Notification` | `asking` | waving on an ice floe |
+| `Stop` | `completed` | napping |
+
+The Claude desktop app is a packaged (MSIX) app. Windows redirects the state file that its
+hooks write into `%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\seal-pet\state`.
+`store::state_files` also finds those copies, and `store::read_state` follows whichever
+file was written most recently.
+
+## 2. Module map
+
+```mermaid
+flowchart TB
+    main["main.rs<br/>entry point"]
+
+    subgraph shared["Shared"]
+        seal["seal.rs<br/>sizes, timings, clips"]
+        store["store.rs<br/>data folder, state file, placement"]
+        status["status.rs<br/>words, colors, auto hide,<br/>state parsing"]
+        bubble["bubble.rs<br/>bubble layout, drawing, animation"]
+        hooks["hooks.rs<br/>~/.claude/settings.json"]
+        anim["anim.rs<br/>easing"]
+        gfx["gfx/mod.rs<br/>Canvas, shapes, Strip"]
+    end
+
+    subgraph backends["Per platform: gfx"]
+        gwin["gfx/win.rs<br/>DIB + GDI text"]
+        gmac["gfx/mac.rs<br/>CGBitmapContext + AppKit text"]
+    end
+
+    subgraph win["Windows: win/"]
+        wmod["win/mod.rs<br/>App, seal window, pointer,<br/>timers, message loop"]
+        wmenu["win/menu.rs<br/>icon menu"]
+        wed["win/editor.rs<br/>status editor"]
+    end
+
+    subgraph mac["macOS: mac/"]
+        mmod["mac/mod.rs<br/>App, NSPanels, SealView,<br/>NSMenu, NSTimer"]
+    end
+
+    main --> hooks
+    main --> status
+    main --> store
+    main -- "windows" --> wmod
+    main -- "macos" --> mmod
+
+    wmod --> wmenu
+    wmod --> wed
+    wmod & mmod --> bubble
+    wmod & mmod --> seal
+    wmod & mmod --> store
+    wmod & mmod --> status
+    wmod & mmod --> gfx
+
+    bubble --> anim
+    bubble --> gfx
+    bubble --> seal
+    store --> seal
+    store --> status
+    seal --> gfx
+    status --> gfx
+    gfx -. "cfg(windows)" .-> gwin
+    gfx -. "cfg(macos)" .-> gmac
+```
+
+- **Shared code** has no platform calls, apart from `gfx`, which picks its back end at
+  compile time.
+- **The `win` and `mac` apps** do the same things in the same order. They are written
+  separately because each uses its platform's own windows, events and timers.
+
+## 3. Starting up
+
+```mermaid
+flowchart TD
+    start(["seal-pet"]) --> args{"first argument"}
+    args -- "--set state" --> write["status::write_state"] --> exit0(["exit"])
+    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>back up, drop old Seal Pet hooks,<br/>add 8 hooks"] --> exit1(["exit"])
+    args -- "none" --> plat{"platform"}
+    plat -- Windows --> wrun["win::run"]
+    plat -- macOS --> mrun["mac::run"]
+    wrun & mrun --> one{"already running?<br/>(mutex / socket)"}
+    one -- yes --> quit(["exit"])
+    one -- no --> init["create windows<br/>read_state, read_placement,<br/>StatusText::load"]
+    init --> loop["event loop + timers"]
+```
+
+## 4. The running seal
+
+Both apps keep one `App` in a thread-local and reach it through `with(|app| ...)`.
+Timers and pointer events call into it:
+
+```mermaid
+flowchart LR
+    subgraph sources["Time and input"]
+        t1["frame timer<br/>(clip interval, 83 ms)"]
+        t2["poll timer<br/>400 ms"]
+        t3["bubble timer<br/>15 ms moving / 33 ms floating"]
+        t4["auto-hide timer"]
+        t5["hold timer<br/>220 ms"]
+        mouse["mouse:<br/>down, move, up, wheel,<br/>right click"]
+    end
+
+    t1 --> fr["next frame<br/>draw_mascot"]
+    t2 --> poll["poll<br/>read_state"]
+    poll -- "state changed" --> sync["sync_clip<br/>(load new strip)"] --> rah["restart_autohide"]
+    rah --> ub["update_bubble"]
+    t3 --> bf["bubble_frame"]
+    t4 --> hide["auto_hidden = true"] --> ub
+    t5 --> drag["start drag"]
+    mouse --> press["press_down / press_move / press_up"]
+    press -- "hold or move > 4 px" --> drag --> mv["move_to + save placement"]
+    press -- "click" --> menu["menu<br/>(icon menu / NSMenu)"]
+    press -- "resize mode" --> rs["set_height + save"]
+    menu --> act["resize / show status /<br/>edit status / quit"]
+```
+
+On Windows each source is a Win32 timer (`TIMER_FRAME`, `TIMER_POLL`, `TIMER_BUBBLE`,
+`TIMER_AUTOHIDE`, `TIMER_HOLD`, plus `TIMER_MENU` for the menu animation). On macOS one
+60 Hz `NSTimer` calls `App::tick`, which checks when each of these is due.
+
+## 5. Drawing the seal
+
+```mermaid
+flowchart LR
+    png["assets/*.png<br/>frame strip (palette PNG)"] -- "Strip::decode" --> strip["Strip<br/>palette indices"]
+    strip -- "Strip::zoomed<br/>(working: 1.15x, frames grow)" --> strip2["Strip + pad"]
+    strip2 -- "Strip::draw<br/>scale to seal size" --> mc["Canvas mc"]
+    mc -- "resize mode:<br/>frame + handle" --> mc
+    mc -- "Windows: UpdateLayeredWindow<br/>macOS: CGImage on the layer" --> win["seal window<br/>(box + transparent overhang)"]
+```
+
+The seal's **box** (x, y, height) is what gets saved, dragged and resized, and what the
+bubble is placed against. For the zoomed `working` clip, the **window** reaches past the
+box (`overhang`). Pointer positions are mapped back into the box (`in_box`).
+
+## 6. The status bubble
+
+`bubble::Bubble` does everything except show the result:
+
+```mermaid
+flowchart TD
+    app["App::update_bubble<br/>picks text, dot, color, key<br/>(editor preview, resize hint, or state)"]
+    app -- "visible" --> show["Bubble::show<br/>measure text, place above or below the seal,<br/>clamp to the work area, avoid the size readout"]
+    app -- "hidden" --> hidebox["Bubble::hide"]
+    show --> drawn["drawn: box in pixel-art sticker style<br/>+ smooth accent dot + text"]
+    show --> tails["tails: two round bubbles,<br/>each on its own canvas"]
+    frame["App::bubble_frame (timer)"] --> bfr["Bubble::frame"]
+    hidebox --> bfr
+    bfr --> comp["shown = drawn + tails composited<br/>with pop-in, bounce, float, ripple"]
+    comp -- "Frame::Shown {x, y, alpha, moving}" --> present["platform shows the 'shown' canvas<br/>and sets the next frame's timer"]
+    bfr -- "Frame::Hidden" --> off["platform hides the window,<br/>stops the timer"]
+```
+
+Animation inputs: `appear` (0 to 1: pop in over 0.5 s, fade out over 0.18 s), `pop` (the
+bounce when `key` changes), and a clock for the 2.8 s float and the dot's ripple. Easing
+comes from `anim.rs`.
+
+## 7. Files on disk
+
+```mermaid
+flowchart LR
+    hooks2["hooks::run"] -- "edits" --> settings[("~/.claude/settings.json")]
+    setcmd["seal-pet --set"] -- "writes" --> state[("state")]
+    state -- "read" --> app2["App::poll"]
+    app2 -- "save_placement" --> placement[("placement<br/>x y height show_status")]
+    placement -- "read_placement at start" --> app2
+    editor2["win/editor.rs Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>words, color.&lt;state&gt;, autohide")]
+    statustxt -- "StatusText::load" --> app2
+```
+
+All of these files except `settings.json` live in the data folder (`store::data_dir`):
+`%LOCALAPPDATA%\seal-pet` on Windows, `~/Library/Application Support/seal-pet` on macOS.
+
+## Where to change things
+
+| To change | Look in |
+|---|---|
+| Which event sets which state | `hooks.rs` (`PLAN`), `tools/install-hooks.ps1` |
+| A state's animation, speed or size | `seal.rs` (`Clip`, `clip_for`) |
+| The bubble's look or motion | `bubble.rs` |
+| Default words and colors | `status.rs` (`STATES`, `DEFAULT_COLOR`) |
+| Windows menu / editor | `win/menu.rs` / `win/editor.rs` |
+| Mac windows, menu, input | `mac/mod.rs` |
+| Text rendering or putting pixels on screen | `gfx/win.rs`, `gfx/mac.rs` |
