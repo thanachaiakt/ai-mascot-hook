@@ -8,7 +8,6 @@ trimmed to a stretch that loops without a jump, cropped to a tight 1:1 square an
 
     assets/gif/<state>.gif       300 x 300, 12.5 fps, transparent
     assets/<state>.png           the pet's strip: 260 x 260 frames, 256 colors with alpha
-    assets/previews/<state>.png  the strip's first frame
 """
 import subprocess
 import sys
@@ -131,7 +130,6 @@ def main():
             for i, fr in enumerate(frames):
                 strip.paste(fr, (i * STRIP, 0))
             strip.quantize(colors=256, method=Image.Quantize.FASTOCTREE).save(ROOT / 'assets' / f'{state}.png', optimize=True)
-            frames[0].save(ROOT / 'assets' / 'previews' / f'{state}.png', optimize=True)
             kb = lambda p: p.stat().st_size // 1024
             print(f'{state}: clip frames {start}-{end}, {side}px square, '
                   f'{len(frames)} frames, {round(1000 * STEP / 24)} ms each; '

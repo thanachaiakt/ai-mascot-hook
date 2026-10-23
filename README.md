@@ -164,8 +164,8 @@ for the current state. The previews below are the animated GIFs from `assets/gif
 An unknown or missing state also uses the napping animation. The strips are
 260 x 260 px (1:1) per frame, cut from the 2 x 2 clip `art/states.mp4` (not kept in the repository; one
 state per quarter) by `tools/video_states.py`: it cuts each seal out of the blue
-grid backdrop, trims it to a seamless loop, crops it square, and writes the strip,
-its preview and a 300 x 300 GIF (`assets/gif/<state>.gif`). Asking loops only the
+grid backdrop, trims it to a seamless loop, crops it square, and writes the strip
+and a 300 x 300 GIF (`assets/gif/<state>.gif`). Asking loops only the
 part where the seal waves its right flipper; the clip's left-flipper wave draws a
 third flipper. The swimmer's tail, lost for two frames mid-spin, is put back
 from a neighbouring frame. The pet keeps the strips as palette indices (1 byte a
