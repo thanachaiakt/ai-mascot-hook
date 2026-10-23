@@ -2,9 +2,10 @@
 
     python tools/render_ui.py        (needs Pillow)
 
-writes assets/menu.png: ten 96 x 96 buttons side by side, drawn at twice their
+writes assets/menu.png: twelve 96 x 96 buttons side by side, drawn at twice their
 on-screen size: status off, status off hovered, status on, status on hovered,
-edit, edit hovered, resize, resize hovered, close, close hovered.
+edit, edit hovered, resize, resize hovered, close, close hovered, settings,
+settings hovered (also used while its submenu is open).
 """
 from pathlib import Path
 
@@ -73,6 +74,23 @@ def bubble_icon(filled):
     return draw
 
 
+def gear_icon(hole):
+    """A cog: eight teeth around a ring, its hole painted in the button's own fill."""
+    import math
+
+    def draw(d, c, ink):
+        teeth, r_out, r_body, r_hole, half = 8, 19 * K, 14 * K, 6 * K, 4.6 * K
+        for i in range(teeth):
+            a = 2 * math.pi * (i + 0.5) / teeth
+            ux, uy = math.cos(a), math.sin(a)
+            nx, ny = -uy, ux
+            p = lambda t, s: (c + ux * t + nx * s, c + uy * t + ny * s)
+            d.polygon([p(r_body - 2 * K, -half), p(r_out, -half * 0.75), p(r_out, half * 0.75), p(r_body - 2 * K, half)], fill=ink)
+        d.ellipse([c - r_body, c - r_body, c + r_body, c + r_body], fill=ink)
+        d.ellipse([c - r_hole, c - r_hole, c + r_hole, c + r_hole], fill=hole)
+    return draw
+
+
 def pencil_icon(d, c, ink):
     """A pencil leaning right, writing on a short line."""
     import math
@@ -96,6 +114,7 @@ if __name__ == '__main__':
         button(pencil_icon, WHITE, WHITE, NAVY), button(pencil_icon, HOVER, BLUE, NAVY),
         button(resize_icon, WHITE, WHITE, NAVY), button(resize_icon, HOVER, BLUE, NAVY),
         button(close_icon, WHITE, WHITE, NAVY), button(close_icon, DANGER, RED, RED),
+        button(gear_icon(WHITE), WHITE, WHITE, NAVY), button(gear_icon(HOVER), HOVER, BLUE, NAVY),
     ]
     strip = Image.new('RGBA', (S * len(tiles), S), (0, 0, 0, 0))
     for i, t in enumerate(tiles):

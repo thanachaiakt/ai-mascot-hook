@@ -8,6 +8,7 @@ description = "A tiny desktop seal that shows what Claude Code is doing"
 png = "0.17"
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
+    "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",
     "Win32_System_LibraryLoader",
     "Win32_System_Threading",

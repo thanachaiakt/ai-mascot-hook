@@ -69,6 +69,52 @@ impl Canvas {
         unsafe { BitBlt(hdc, x, y, self.w, self.h, self.dc, 0, 0, SRCCOPY) };
     }
 
+    /// Draw `src` over this surface, sampled bilinearly, scaled by `scale` about `pivot` (a
+    /// point of `src`), with `src`'s top-left at `at` before scaling. `at` may fall between
+    /// pixels: that is what keeps slow movement smooth.
+    pub fn draw_canvas(&mut self, src: &Canvas, at: (f32, f32), scale: f32, pivot: (f32, f32)) {
+        if scale <= 0.001 {
+            return;
+        }
+        let (sw, sh) = (src.w, src.h);
+        let from = unsafe { std::slice::from_raw_parts(src.bits, (sw * sh * 4) as usize) };
+        let (ox, oy) = (at.0 + pivot.0, at.1 + pivot.1);
+        let x0 = ((ox - pivot.0 * scale).floor() as i32).max(0);
+        let x1 = ((ox + (sw as f32 - pivot.0) * scale).ceil() as i32).min(self.w);
+        let y0 = ((oy - pivot.1 * scale).floor() as i32).max(0);
+        let y1 = ((oy + (sh as f32 - pivot.1) * scale).ceil() as i32).min(self.h);
+        let texel = |x: i32, y: i32| -> [f32; 4] {
+            if x < 0 || y < 0 || x >= sw || y >= sh {
+                return [0.0; 4];
+            }
+            let i = ((y * sw + x) * 4) as usize;
+            [from[i] as f32, from[i + 1] as f32, from[i + 2] as f32, from[i + 3] as f32]
+        };
+        let w = self.w;
+        let px = self.px();
+        for y in y0..y1 {
+            let sy = pivot.1 + (y as f32 + 0.5 - oy) / scale - 0.5;
+            let (ty, fy) = (sy.floor() as i32, sy - sy.floor());
+            for x in x0..x1 {
+                let sx = pivot.0 + (x as f32 + 0.5 - ox) / scale - 0.5;
+                let (tx, fx) = (sx.floor() as i32, sx - sx.floor());
+                let (a, b, c, d) = (texel(tx, ty), texel(tx + 1, ty), texel(tx, ty + 1), texel(tx + 1, ty + 1));
+                let mut s = [0.0f32; 4];
+                for k in 0..4 {
+                    s[k] = (a[k] * (1.0 - fx) + b[k] * fx) * (1.0 - fy) + (c[k] * (1.0 - fx) + d[k] * fx) * fy;
+                }
+                if s[3] < 0.5 {
+                    continue;
+                }
+                let keep = 1.0 - s[3] / 255.0;
+                let i = ((y * w + x) * 4) as usize;
+                for k in 0..4 {
+                    px[i + k] = (s[k] + px[i + k] as f32 * keep).round().min(255.0) as u8;
+                }
+            }
+        }
+    }
+
     pub fn px(&mut self) -> &mut [u8] {
         unsafe { std::slice::from_raw_parts_mut(self.bits, (self.w * self.h * 4) as usize) }
     }
@@ -108,7 +154,13 @@ impl Canvas {
 
     /// Draw a premultiplied image with its top-left at (x, y).
     pub fn blit(&mut self, img: &Image, x: i32, y: i32) {
+        self.blit_faded(img, x, y, 255);
+    }
+
+    /// Draw a premultiplied image with its top-left at (x, y), faded by `alpha`.
+    pub fn blit_faded(&mut self, img: &Image, x: i32, y: i32, alpha: u8) {
         let (w, h) = (self.w, self.h);
+        let fade = alpha as u32;
         let px = self.px();
         for sy in 0..img.h {
             let ty = y + sy as i32;
@@ -121,13 +173,13 @@ impl Canvas {
                     continue;
                 }
                 let s = &img.px[(sy * img.w + sx) * 4..][..4];
-                let a = s[3] as u32;
+                let a = s[3] as u32 * fade / 255;
                 if a == 0 {
                     continue;
                 }
                 let i = ((ty * w + tx) * 4) as usize;
                 for c in 0..4 {
-                    px[i + c] = (s[c] as u32 + px[i + c] as u32 * (255 - a) / 255) as u8;
+                    px[i + c] = (s[c] as u32 * fade / 255 + px[i + c] as u32 * (255 - a) / 255) as u8;
                 }
             }
         }
@@ -169,6 +221,22 @@ impl Canvas {
     }
 }
 
+impl Canvas {
+    /// Draw `text` into `rect` with DrawText `flags`, leaving alpha as it is: for surfaces
+    /// shown with `paint_to`, which ignores alpha.
+    pub fn draw_text(&mut self, font: HFONT, text: &str, rect: RECT, color: Rgba, flags: u32) {
+        let wide = wide(text);
+        let mut r = rect;
+        unsafe {
+            SelectObject(self.dc, font);
+            SetBkMode(self.dc, TRANSPARENT as _);
+            SetTextColor(self.dc, color.0 as u32 | (color.1 as u32) << 8 | (color.2 as u32) << 16);
+            DrawTextW(self.dc, wide.as_ptr(), -1, &mut r, flags | DT_SINGLELINE | DT_NOPREFIX);
+            GdiFlush();
+        }
+    }
+}
+
 impl Drop for Canvas {
     fn drop(&mut self) {
         unsafe {
@@ -200,6 +268,15 @@ pub fn circle(cx: f32, cy: f32, r: f32) -> impl Fn(f32, f32) -> f32 {
     move |x, y| ((x - cx).powi(2) + (y - cy).powi(2)).sqrt() - r
 }
 
+/// A line from `a` to `b`, `w` thick, with round ends.
+pub fn segment(a: (f32, f32), b: (f32, f32), w: f32) -> impl Fn(f32, f32) -> f32 {
+    move |x, y| {
+        let (px, py, dx, dy) = (x - a.0, y - a.1, b.0 - a.0, b.1 - a.1);
+        let t = ((px * dx + py * dy) / (dx * dx + dy * dy)).clamp(0.0, 1.0);
+        ((px - dx * t).powi(2) + (py - dy * t).powi(2)).sqrt() - w / 2.0
+    }
+}
+
 pub fn round_rect(x0: f32, y0: f32, x1: f32, y1: f32, r: f32) -> impl Fn(f32, f32) -> f32 {
     let (cx, cy) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
     let (hx, hy) = ((x1 - x0) / 2.0 - r, (y1 - y0) / 2.0 - r);
@@ -210,31 +287,11 @@ pub fn round_rect(x0: f32, y0: f32, x1: f32, y1: f32, r: f32) -> impl Fn(f32, f3
     }
 }
 
-/// Smooth minimum of two distances: shapes melt into each other over `k` pixels.
-pub fn smin(a: f32, b: f32, k: f32) -> f32 {
-    let h = (k - (a - b).abs()).max(0.0) / k;
-    a.min(b) - h * h * k * 0.25
+/// `sdf` seen on a grid of `p`-pixel blocks: each block takes the distance at its center,
+/// so drawn with a hard edge the shape comes out as pixel art.
+pub fn pixelated(sdf: impl Fn(f32, f32) -> f32, p: f32) -> impl Fn(f32, f32) -> f32 {
+    move |x, y| sdf((x / p).floor() * p + p / 2.0, (y / p).floor() * p + p / 2.0)
 }
-
-pub fn triangle(a: (f32, f32), b: (f32, f32), c: (f32, f32)) -> impl Fn(f32, f32) -> f32 {
-    move |x, y| {
-        let edge = |p: (f32, f32), q: (f32, f32)| {
-            let (ex, ey) = (q.0 - p.0, q.1 - p.1);
-            let (wx, wy) = (x - p.0, y - p.1);
-            let t = ((wx * ex + wy * ey) / (ex * ex + ey * ey)).clamp(0.0, 1.0);
-            let (dx, dy) = (wx - ex * t, wy - ey * t);
-            (dx * dx + dy * dy, ex * wy - ey * wx)
-        };
-        let (d0, s0) = edge(a, b);
-        let (d1, s1) = edge(b, c);
-        let (d2, s2) = edge(c, a);
-        let d = d0.min(d1).min(d2).sqrt();
-        let inside = (s0 >= 0.0 && s1 >= 0.0 && s2 >= 0.0) || (s0 <= 0.0 && s1 <= 0.0 && s2 <= 0.0);
-        if inside { -d } else { d }
-    }
-}
-
-// ---- images -------------------------------------------------------------------
 
 /// A premultiplied BGRA image.
 pub struct Image {
@@ -308,6 +365,9 @@ pub struct Strip {
     pub frames: usize,
     pub fw: usize,
     pub fh: usize,
+    /// room added around the original frame (left, top, right, bottom), so art enlarged
+    /// past its edges is kept whole: the frame proper is the rest
+    pub pad: (usize, usize, usize, usize),
 }
 
 impl Strip {
@@ -340,19 +400,77 @@ impl Strip {
             let a = *trns.get(i).unwrap_or(&255) as u32;
             pal[i] = [(rgb[2] as u32 * a / 255) as u8, (rgb[1] as u32 * a / 255) as u8, (rgb[0] as u32 * a / 255) as u8, a as u8];
         }
-        Strip { idx, stride: w, pal, frames, fw: w / frames, fh: h }
+        Strip { idx, stride: w, pal, frames, fw: w / frames, fh: h, pad: (0, 0, 0, 0) }
     }
 
-    /// Draw frame `f` scaled to fill the canvas.
+    /// The strip with every frame enlarged by `zoom` about `pivot` (in frame pixels), for art
+    /// whose subject sits smaller in its frames than the other strips' does. The frames
+    /// grow wherever the enlarged art would leave them, so nothing is cut off; `pad` says
+    /// by how much.
+    pub fn zoomed(self, zoom: f32, pivot: (f32, f32)) -> Strip {
+        if (zoom - 1.0).abs() < 1e-3 {
+            return self;
+        }
+        let (fw, fh) = (self.fw, self.fh);
+        let solid = |f: usize, x: usize, y: usize| self.pal[self.idx[y * self.stride + f * fw + x] as usize][3] > 0;
+        // where the art reaches, in any frame, once enlarged
+        let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+        for f in 0..self.frames {
+            for y in 0..fh {
+                for x in 0..fw {
+                    if solid(f, x, y) {
+                        x0 = x0.min(x as f32);
+                        x1 = x1.max(x as f32 + 1.0);
+                        y0 = y0.min(y as f32);
+                        y1 = y1.max(y as f32 + 1.0);
+                    }
+                }
+            }
+        }
+        let grown = |v: f32, c: f32| c + (v - c) * zoom;
+        let left = (-grown(x0, pivot.0)).ceil().max(0.0) as usize;
+        let right = (grown(x1, pivot.0) - fw as f32).ceil().max(0.0) as usize;
+        let top = (-grown(y0, pivot.1)).ceil().max(0.0) as usize;
+        let bottom = (grown(y1, pivot.1) - fh as f32).ceil().max(0.0) as usize;
+        let (nw, nh) = (fw + left + right, fh + top + bottom);
+        let stride = nw * self.frames;
+        let clear = self.pal.iter().position(|c| c[3] == 0).unwrap_or(0) as u8;
+        let mut idx = vec![clear; stride * nh];
+        for f in 0..self.frames {
+            for y in 0..nh {
+                let sy = pivot.1 + (y as f32 - top as f32 + 0.5 - pivot.1) / zoom;
+                if sy < 0.0 || sy >= fh as f32 {
+                    continue;
+                }
+                for x in 0..nw {
+                    let sx = pivot.0 + (x as f32 - left as f32 + 0.5 - pivot.0) / zoom;
+                    if sx < 0.0 || sx >= fw as f32 {
+                        continue;
+                    }
+                    idx[y * stride + f * nw + x] = self.idx[sy as usize * self.stride + f * fw + sx as usize];
+                }
+            }
+        }
+        Strip { idx, stride, fw: nw, fh: nh, pad: (left, top, right, bottom), ..self }
+    }
+
+    /// Draw frame `f` as large as fits the canvas, keeping the frame's aspect: centered
+    /// across, resting on the bottom edge (a square strip in the taller seal box sits where
+    /// the other strips' seal does).
     ///
     /// Source positions are worked out once per row and column, so the per-pixel work is
     /// table lookups and integer sums: this runs every frame, at 20 frames a second.
     pub fn draw(&self, f: usize, cv: &mut Canvas) {
-        let (ow, oh) = (cv.w as usize, cv.h as usize);
+        let (cw, ch) = (cv.w as usize, cv.h as usize);
+        let fit = (cw as f32 / self.fw as f32).min(ch as f32 / self.fh as f32);
+        let ow = ((self.fw as f32 * fit).round() as usize).clamp(1, cw);
+        let oh = ((self.fh as f32 * fit).round() as usize).clamp(1, ch);
+        let (dx, dy) = ((cw - ow) / 2, ch - oh);
         let rx = self.fw as f32 / ow as f32;
         let ry = self.fh as f32 / oh as f32;
         let base = f * self.fw;
         let px = cv.px();
+        let out = |x: usize, y: usize| ((y + dy) * cw + x + dx) * 4;
         if rx > 1.25 {
             // shrinking: average an n x n grid of source pixels under each output pixel
             let n = (rx.ceil() as usize).clamp(2, 8);
@@ -372,7 +490,7 @@ impl Strip {
                             acc[3] += c[3] as u32;
                         }
                     }
-                    let o = (y * ow + x) * 4;
+                    let o = out(x, y);
                     px[o] = (acc[0] / nn) as u8;
                     px[o + 1] = (acc[1] / nn) as u8;
                     px[o + 2] = (acc[2] / nn) as u8;
@@ -395,7 +513,7 @@ impl Strip {
                     let c10 = &self.pal[self.idx[r0 + x1] as usize];
                     let c01 = &self.pal[self.idx[r1 + x0] as usize];
                     let c11 = &self.pal[self.idx[r1 + x1] as usize];
-                    let o = (y * ow + x) * 4;
+                    let o = out(x, y);
                     for k in 0..4 {
                         let top = c00[k] as u32 * (256 - wx) + c10[k] as u32 * wx;
                         let bottom = c01[k] as u32 * (256 - wx) + c11[k] as u32 * wx;
