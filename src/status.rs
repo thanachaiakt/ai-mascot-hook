@@ -24,6 +24,7 @@ pub const DEFAULT_COLOR: Rgba = Rgba(24, 52, 110, 255);
 /// The longest the bubble may stay up before it hides itself, in seconds.
 pub const MAX_AUTOHIDE: u32 = 20;
 
+#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 /// The swatches the editor offers.
 pub const SWATCHES: [Rgba; 8] = [
     Rgba(24, 52, 110, 255),
@@ -82,6 +83,7 @@ impl StatusText {
         status
     }
 
+    #[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
     pub fn save(&self, path: &Path) {
         let mut out = String::new();
         for (i, (key, _, _)) in STATES.iter().enumerate() {

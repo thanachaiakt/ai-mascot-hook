@@ -6,6 +6,9 @@ description = "A tiny desktop seal that shows what Claude Code is doing"
 
 [dependencies]
 png = "0.17"
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
@@ -19,6 +22,15 @@ windows-sys = { version = "0.59", features = [
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+objc2-core-foundation = "0.3"
+objc2-core-graphics = "0.3"
+objc2-quartz-core = "0.3"
+block2 = "0.6"
 
 [profile.release]
 opt-level = 3

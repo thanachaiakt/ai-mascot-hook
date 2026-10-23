@@ -2,14 +2,32 @@
 
 ## Purpose and platform
 
-Seal Pet is a Windows desktop companion that displays a small animated seal and
-reflects a status supplied by Claude Code hooks. It runs as a single instance,
-without a taskbar button, in an always-on-top, borderless window with transparent
-pixels. The seal does not activate other windows when shown. The status bubble
-does not intercept pointer input.
+Seal Pet is a desktop companion for Windows and macOS that displays a small
+animated seal and reflects a status supplied by Claude Code hooks. It runs as a
+single instance, without a taskbar button or Dock icon, in an always-on-top,
+borderless window with transparent pixels. The seal does not activate other
+windows when shown. The status bubble does not intercept pointer input.
 
-The program is a status display, not a Claude Code hook installer: another
-process or hook must write the current status file.
+The program displays a status that hooks write. `seal-pet --set <state>` writes
+the status file; `seal-pet --install-hooks` points Claude Code's hooks at the
+program (`--remove-hooks` takes them out), and on Windows
+`tools/install-hooks.ps1` does the same.
+
+### macOS (phase 1)
+
+On macOS the seal, its animations, the status bubble (with all its animation),
+dragging and resizing (wheel or trackpad scroll, or the corner handle) behave as
+on Windows, with these differences:
+
+- A click or right-click opens a native menu: **Resize**, **Show status** (checked
+  while the bubble is on) and **Quit Seal Pet**. The icon menu and the status
+  text editor are Windows only for now; on macOS the bubble's words, colors and
+  auto hide come from `status.txt`, edited by hand or copied from Windows.
+- The app is an accessory app: no Dock icon or menu bar. Its windows float above
+  other windows on every Space, including beside full-screen apps.
+- Sizes are in pixels (points × the main display's scale), as on Windows.
+- One instance at a time is enforced with a socket, `instance.sock`, in the data
+  folder.
 
 ## Status input
 
@@ -127,7 +145,9 @@ The preset colors are `#18346e`, `#2f80ed`, `#0f9d8a`, `#2e9e44`, `#e07b00`,
 
 ## Persistent data
 
-Program data is stored in `%LOCALAPPDATA%\seal-pet`. If `LOCALAPPDATA` is not
+Program data is stored in `%LOCALAPPDATA%\seal-pet` on Windows and in
+`~/Library/Application Support/seal-pet` on macOS (where the status file is
+`~/Library/Application Support/seal-pet/state`). If that location is not
 available, the program uses the system temporary directory as its data base.
 
 ### Placement file
@@ -185,8 +205,9 @@ where they stand. So that no frame is cut off when the swimmer reaches a side or
 spins, the enlarged frames grow by exactly as much as the art extends past them
 (on any side), and the seal's window reaches that far past the seal's box with
 transparent pixels, which pass clicks through. Position, size, dragging,
-resizing and the bubble all keep to the box. The renderer and menu are implemented with Win32
-layered windows.
+resizing and the bubble all keep to the box. On Windows the windows are Win32
+layered windows; on macOS they are borderless AppKit panels whose layers show
+the drawn pixels.
 
 Build the release executable with:
 
@@ -194,5 +215,14 @@ Build the release executable with:
 cargo build --release
 ```
 
-The resulting executable is `target/release/seal-pet.exe`. A Windows shortcut
-to it may be placed in `shell:startup` to run Seal Pet at sign-in.
+The resulting executable is `target/release/seal-pet.exe` on Windows and
+`target/release/seal-pet` on macOS. A Windows shortcut to it may be placed in
+`shell:startup` to run Seal Pet at sign-in; on macOS a LaunchAgent can start it
+(see the README).
+
+The source is split by purpose: `seal.rs` (sizes, timings, clips), `store.rs`
+(data folder, state file, placement), `status.rs` (the bubble's words and
+colors), `bubble.rs` (drawing and animating the bubble), `anim.rs` (easing),
+`hooks.rs` (installing the hooks) and `gfx` (the pixel surface, with
+`gfx/win.rs` and `gfx/mac.rs` for each platform's text and display) are shared;
+`win/` (the app, `menu.rs`, `editor.rs`) and `mac/` are each platform's windows.

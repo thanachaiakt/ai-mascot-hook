@@ -2,21 +2,24 @@
 
 [English](README.md)
 
-แมวน้ำตัวเล็กที่ลอยอยู่บนหน้าจอ Windows และแสดงท่าทางตามสิ่งที่ Claude Code กำลังทำ
+แมวน้ำตัวเล็กที่ลอยอยู่บนหน้าจอ Windows หรือ macOS และแสดงท่าทางตามสิ่งที่ Claude Code กำลังทำ
 ตบมือตอนคิด ว่ายน้ำใส่หมวกนิรภัยตอนทำงาน โบกมือบนก้อนน้ำแข็งตอนรอคำตอบ
 และนอนหลับตอนเสร็จงานหรือว่างอยู่ พร้อมกล่องข้อความบอกสถานะแบบ pixel art เข้าชุดกับตัวแมวน้ำ
 
-| สถานะ | ท่าทาง | ข้อความเริ่มต้น |
-|---|---|---|
-| `loading` | ตบมือ กำลังคิด | Thinking… |
-| `working` | ว่ายน้ำใส่หมวกนิรภัย | Working… |
-| `asking` | โบกมือบนก้อนน้ำแข็ง รอคำตอบจากคุณ | Need your input! |
-| `completed` | นอนหลับ เสร็จงานแล้ว | All done! |
-| `idle` | นอนหลับ ว่างอยู่ | Napping… zZ |
+| สถานะ | ภาพตัวอย่าง | ท่าทาง | ข้อความเริ่มต้น |
+|---|---|---|---|
+| `loading` | <img src="assets/gif/loading.gif" width="120" alt="แมวน้ำตบมือ"> | ตบมือ กำลังคิด | Thinking… |
+| `working` | <img src="assets/gif/working.gif" width="120" alt="แมวน้ำว่ายน้ำใส่หมวกนิรภัย"> | ว่ายน้ำใส่หมวกนิรภัย ถือพลั่ว | Working… |
+| `asking` | <img src="assets/gif/asking.gif" width="120" alt="แมวน้ำโบกมือบนก้อนน้ำแข็ง"> | โบกมือบนก้อนน้ำแข็ง รอคำตอบจากคุณ | Need your input! |
+| `completed` | <img src="assets/gif/completed.gif" width="120" alt="แมวน้ำนอนหลับ"> | นอนหลับ เสร็จงานแล้ว | All done! |
+| `idle` | <img src="assets/gif/completed.gif" width="120" alt="แมวน้ำนอนหลับ"> | นอนหลับ ว่างอยู่ (ท่าเดียวกับ completed) | Napping… zZ |
+
+ภาพตัวอย่างเป็น GIF เคลื่อนไหวจาก `assets/gif/`
 
 ## สิ่งที่ต้องมี
 
-- Windows 10 หรือใหม่กว่า แบบ 64 บิต
+- Windows 10 หรือใหม่กว่า แบบ 64 บิต หรือ macOS 11 ขึ้นไป (ชิป Apple หรือ Intel)
+  สำหรับ Mac ดูหัวข้อ [ใช้บน Mac](#ใช้บน-mac) ด้านล่าง
 - ไฟล์ `seal-pet.exe` จากหน้า Releases ไม่ต้องติดตั้งโปรแกรมอื่นเพิ่ม
 - Claude Code (ไม่บังคับ) ถ้าต้องการให้แมวน้ำเปลี่ยนท่าตาม Claude อัตโนมัติ
   ใช้ได้ทั้ง Claude Code แบบ command line และใน Claude desktop app
@@ -139,9 +142,58 @@ seal-pet.exe --set working
 
 สถานะที่ใช้ได้: `loading`, `working`, `asking`, `completed`, `idle`
 
+## ใช้บน Mac
+
+เวอร์ชัน Mac ยังเป็นรอบแรก ใช้ได้แล้ว: แมวน้ำ ท่าทางตามสถานะ กล่องข้อความพร้อม animation
+การลาก การปรับขนาด และ hook ของ Claude Code
+คลิกที่แมวน้ำจะมีเมนูของ Mac ขึ้นมา (**Resize**, **Show status**, **Quit Seal Pet**)
+**หน้าตั้งค่าข้อความยังไม่มีบน Mac** ถ้าจะเปลี่ยนข้อความ สี หรือ auto hide
+ให้แก้ไฟล์ `~/Library/Application Support/seal-pet/status.txt` เอง (รูปแบบเดียวกับ Windows
+คัดลอกไฟล์จาก Windows มาใช้ได้)
+
+### ติดตั้งบน Mac
+
+ต้องมี Rust ก่อน (ติดตั้งจาก https://rustup.rs) แล้วเปิด Terminal ในโฟลเดอร์โปรเจกต์
+
+```bash
+cargo build --release
+./target/release/seal-pet --install-hooks
+./target/release/seal-pet &
+```
+
+จากนั้นเปิด Claude Code ใหม่ แมวน้ำไม่มีไอคอนใน Dock ปิดได้จากเมนูของแมวน้ำ (**Quit Seal Pet**)
+
+ถ้าย้ายไฟล์ `seal-pet` ไปไว้ที่อื่น ให้รัน `--install-hooks` จากที่ใหม่อีกครั้ง เพราะ hook เรียกโปรแกรมตาม path
+
+### ให้เปิดเองตอน login (ไม่บังคับ)
+
+สร้างไฟล์ `~/Library/LaunchAgents/com.seal-pet.plist` (แก้ path ให้ตรงกับเครื่องคุณ)
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.seal-pet</string>
+  <key>ProgramArguments</key><array><string>/Users/you/seal-pet/target/release/seal-pet</string></array>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
+```
+
+แล้วรัน `launchctl load ~/Library/LaunchAgents/com.seal-pet.plist`
+
+### ถอนการติดตั้งบน Mac
+
+```bash
+./target/release/seal-pet --remove-hooks
+launchctl unload ~/Library/LaunchAgents/com.seal-pet.plist   # ถ้าตั้งให้เปิดตอน login ไว้
+rm -rf ~/Library/Application\ Support/seal-pet
+```
+
 ## ไฟล์ที่โปรแกรมเก็บ
 
-ทั้งหมดอยู่ใน `%LOCALAPPDATA%\seal-pet\`
+ทั้งหมดอยู่ใน `%LOCALAPPDATA%\seal-pet\` (Windows) หรือ `~/Library/Application Support/seal-pet/` (Mac)
 
 | ไฟล์ | เก็บอะไร |
 |---|---|

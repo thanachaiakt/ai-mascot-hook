@@ -1,72 +1,33 @@
-//! Drawing for layered windows: a premultiplied BGRA surface, anti-aliased shapes,
-//! images, GDI text with its alpha repaired, and frame strips scaled on the fly.
+//! Drawing: a premultiplied BGRA surface, anti-aliased shapes, images and frame strips
+//! scaled on the fly. Putting a surface on screen, and text, are each platform's own
+//! (`win`, `mac`).
 
-use std::ptr::null_mut;
+#[cfg(target_os = "macos")]
+mod mac;
+#[cfg(windows)]
+mod win;
 
-use windows_sys::Win32::Foundation::*;
-use windows_sys::Win32::Graphics::Gdi::*;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+#[cfg(target_os = "macos")]
+pub use mac::*;
+#[cfg(windows)]
+pub use win::*;
 
-/// A straight (not premultiplied) RGBA color.
-#[derive(Clone, Copy)]
-pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
-
-/// A 32-bit top-down DIB selected into its own memory DC.
+/// A premultiplied BGRA surface, top row first, kept by the platform's own drawing context
+/// (`Surface`) so text can be drawn into it as well.
 pub struct Canvas {
-    pub dc: HDC,
-    bitmap: HBITMAP,
-    bits: *mut u8,
     pub w: i32,
     pub h: i32,
+    bits: *mut u8,
+    sys: Surface,
 }
 
 impl Canvas {
-    pub fn new() -> Canvas {
-        let dc = unsafe {
-            let screen = GetDC(null_mut());
-            let dc = CreateCompatibleDC(screen);
-            ReleaseDC(null_mut(), screen);
-            dc
-        };
-        Canvas { dc, bitmap: null_mut(), bits: null_mut(), w: 0, h: 0 }
-    }
-
-    /// Size the surface to w x h and clear it.
-    pub fn reset(&mut self, w: i32, h: i32) {
-        let (w, h) = (w.max(1), h.max(1));
-        if w != self.w || h != self.h || self.bitmap.is_null() {
-            unsafe {
-                if !self.bitmap.is_null() {
-                    DeleteObject(self.bitmap);
-                }
-                let mut info: BITMAPINFO = std::mem::zeroed();
-                info.bmiHeader.biSize = std::mem::size_of::<BITMAPINFOHEADER>() as u32;
-                info.bmiHeader.biWidth = w;
-                info.bmiHeader.biHeight = -h;
-                info.bmiHeader.biPlanes = 1;
-                info.bmiHeader.biBitCount = 32;
-                info.bmiHeader.biCompression = BI_RGB;
-                let mut bits: *mut core::ffi::c_void = null_mut();
-                self.bitmap = CreateDIBSection(self.dc, &info, DIB_RGB_COLORS, &mut bits, null_mut(), 0);
-                self.bits = bits as *mut u8;
-                SelectObject(self.dc, self.bitmap);
-            }
-            self.w = w;
-            self.h = h;
-        }
-        self.px().fill(0);
-    }
-
+    #[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
     /// Fill the whole surface with an opaque color.
     pub fn fill(&mut self, c: Rgba) {
         for p in self.px().chunks_exact_mut(4) {
             p.copy_from_slice(&[c.2, c.1, c.0, 255]);
         }
-    }
-
-    /// Copy the surface onto `hdc` at (x, y), ignoring alpha.
-    pub fn paint_to(&self, hdc: HDC, x: i32, y: i32) {
-        unsafe { BitBlt(hdc, x, y, self.w, self.h, self.dc, 0, 0, SRCCOPY) };
     }
 
     /// Draw `src` over this surface, sampled bilinearly, scaled by `scale` about `pivot` (a
@@ -119,19 +80,6 @@ impl Canvas {
         unsafe { std::slice::from_raw_parts_mut(self.bits, (self.w * self.h * 4) as usize) }
     }
 
-    /// Put the surface on screen as `hwnd`'s content, at (x, y), faded by `alpha`.
-    pub fn present(&self, hwnd: HWND, x: i32, y: i32, alpha: u8) {
-        unsafe {
-            let at = POINT { x, y };
-            let size = SIZE { cx: self.w, cy: self.h };
-            let origin = POINT { x: 0, y: 0 };
-            let blend = BLENDFUNCTION { BlendOp: AC_SRC_OVER as u8, BlendFlags: 0, SourceConstantAlpha: alpha, AlphaFormat: AC_SRC_ALPHA as u8 };
-            let screen = GetDC(null_mut());
-            UpdateLayeredWindow(hwnd, screen, &at, &size, self.dc, &origin, 0, &blend, ULW_ALPHA);
-            ReleaseDC(null_mut(), screen);
-        }
-    }
-
     /// Paint `color` where `sdf` (signed distance, negative inside) covers, anti-aliased.
     pub fn fill_sdf(&mut self, bbox: (f32, f32, f32, f32), color: Rgba, feather: f32, sdf: impl Fn(f32, f32) -> f32) {
         let (w, h) = (self.w, self.h);
@@ -152,11 +100,13 @@ impl Canvas {
         }
     }
 
+    #[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
     /// Draw a premultiplied image with its top-left at (x, y).
     pub fn blit(&mut self, img: &Image, x: i32, y: i32) {
         self.blit_faded(img, x, y, 255);
     }
 
+    #[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
     /// Draw a premultiplied image with its top-left at (x, y), faded by `alpha`.
     pub fn blit_faded(&mut self, img: &Image, x: i32, y: i32, alpha: u8) {
         let (w, h) = (self.w, self.h);
@@ -184,69 +134,20 @@ impl Canvas {
             }
         }
     }
-
-    /// Size of `text` in `font`, in pixels.
-    pub fn measure(&self, font: HFONT, text: &str) -> (i32, i32) {
-        let wide = wide(text);
-        let mut rect = RECT { left: 0, top: 0, right: 0, bottom: 0 };
-        unsafe {
-            SelectObject(self.dc, font);
-            DrawTextW(self.dc, wide.as_ptr(), -1, &mut rect, DT_CALCRECT | DT_SINGLELINE | DT_NOPREFIX);
-        }
-        (rect.right - rect.left, rect.bottom - rect.top)
-    }
-
-    /// Draw `text` centered in `rect`, on an area already painted opaque.
-    ///
-    /// GDI writes no alpha, so pixels it touched are made opaque again afterwards.
-    pub fn text(&mut self, font: HFONT, text: &str, rect: RECT, color: Rgba) {
-        let saved: Vec<u8> = self.px().to_vec();
-        let wide = wide(text);
-        let mut r = rect;
-        unsafe {
-            SelectObject(self.dc, font);
-            SetBkMode(self.dc, TRANSPARENT as _);
-            SetTextColor(self.dc, color.0 as u32 | (color.1 as u32) << 8 | (color.2 as u32) << 16);
-            DrawTextW(self.dc, wide.as_ptr(), -1, &mut r, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-            GdiFlush();
-        }
-        let px = self.px();
-        for i in (0..px.len()).step_by(4) {
-            if saved[i + 3] == 255 {
-                px[i + 3] = 255;
-            } else {
-                px[i..i + 4].copy_from_slice(&saved[i..i + 4]);
-            }
-        }
-    }
 }
 
-impl Canvas {
-    /// Draw `text` into `rect` with DrawText `flags`, leaving alpha as it is: for surfaces
-    /// shown with `paint_to`, which ignores alpha.
-    pub fn draw_text(&mut self, font: HFONT, text: &str, rect: RECT, color: Rgba, flags: u32) {
-        let wide = wide(text);
-        let mut r = rect;
-        unsafe {
-            SelectObject(self.dc, font);
-            SetBkMode(self.dc, TRANSPARENT as _);
-            SetTextColor(self.dc, color.0 as u32 | (color.1 as u32) << 8 | (color.2 as u32) << 16);
-            DrawTextW(self.dc, wide.as_ptr(), -1, &mut r, flags | DT_SINGLELINE | DT_NOPREFIX);
-            GdiFlush();
-        }
-    }
-}
+#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
+pub const NAVY: Rgba = Rgba(24, 52, 110, 255);
+pub const BLUE: Rgba = Rgba(74, 152, 216, 255);
+pub const WHITE: Rgba = Rgba(255, 255, 255, 255);
 
-impl Drop for Canvas {
-    fn drop(&mut self) {
-        unsafe {
-            if !self.bitmap.is_null() {
-                DeleteObject(self.bitmap);
-            }
-            DeleteDC(self.dc);
-        }
-    }
-}
+/// A straight (not premultiplied) RGBA color.
+#[derive(Clone, Copy)]
+pub struct Rgba(pub u8, pub u8, pub u8, pub u8);
+
+
+
+
 
 /// Source-over of a straight color with `cover` onto one premultiplied BGRA pixel.
 fn over(px: &mut [u8], c: Rgba, cover: f32) {
@@ -258,9 +159,6 @@ fn over(px: &mut [u8], c: Rgba, cover: f32) {
     px[3] = (255.0 * a + px[3] as f32 * keep).round() as u8;
 }
 
-pub fn wide(s: &str) -> Vec<u16> {
-    s.encode_utf16().chain(std::iter::once(0)).collect()
-}
 
 // ---- signed distance functions ------------------------------------------------
 
@@ -268,6 +166,7 @@ pub fn circle(cx: f32, cy: f32, r: f32) -> impl Fn(f32, f32) -> f32 {
     move |x, y| ((x - cx).powi(2) + (y - cy).powi(2)).sqrt() - r
 }
 
+#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 /// A line from `a` to `b`, `w` thick, with round ends.
 pub fn segment(a: (f32, f32), b: (f32, f32), w: f32) -> impl Fn(f32, f32) -> f32 {
     move |x, y| {
@@ -293,6 +192,7 @@ pub fn pixelated(sdf: impl Fn(f32, f32) -> f32, p: f32) -> impl Fn(f32, f32) -> 
     move |x, y| sdf((x / p).floor() * p + p / 2.0, (y / p).floor() * p + p / 2.0)
 }
 
+#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 /// A premultiplied BGRA image.
 pub struct Image {
     pub w: usize,
@@ -300,6 +200,7 @@ pub struct Image {
     pub px: Vec<u8>,
 }
 
+#[cfg_attr(not(windows), allow(dead_code))] // the Windows menu and editor; the Mac editor comes later
 impl Image {
     /// Decode an RGBA PNG.
     pub fn decode(bytes: &[u8]) -> Image {

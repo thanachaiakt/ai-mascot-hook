@@ -2,7 +2,7 @@
 
 [ภาษาไทย: วิธีติดตั้งและใช้งาน](README.th.md)
 
-A small seal that floats on the Windows desktop and acts out what Claude Code is doing:
+A small seal that floats on the Windows or macOS desktop and acts out what Claude Code is doing:
 claps while loading, swims in a hard hat while working, waves from an ice floe while asking,
 and naps when the turn is done or idle.
 
@@ -52,6 +52,12 @@ at once (the running seal is left alone). To set the hooks up, build the exe, th
 powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1
 ```
 
+or, on any platform, let the program do it (on Windows the exe path must have no spaces):
+
+```bash
+seal-pet --install-hooks     # --remove-hooks takes them out
+```
+
 It adds these hooks, each a plain `seal-pet.exe --set <state>` command line that every
 Claude Code version runs, and keeps every other hook you have (it backs `settings.json` up first; `-Remove` takes them out again,
 `-Exe <path>` points them at another copy of the exe):
@@ -74,7 +80,7 @@ running exe, so close the seal before rebuilding it.
 
 ## System requirements
 
-- 64-bit Windows 10 or later.
+- 64-bit Windows 10 or later, or macOS 11 or later (Apple silicon or Intel).
 - No additional runtime is required to run the downloaded release executable.
 - Claude Code is optional; it is only needed if you want Seal Pet to display
   Claude Code's status automatically.
@@ -92,6 +98,39 @@ target/release/seal-pet.exe
 
 Only one seal runs at a time. To start it with Windows, put a shortcut to
 `seal-pet.exe` in `shell:startup`.
+
+## macOS
+
+Phase 1 of the Mac version: the seal, its animations, the status bubble, dragging,
+resizing and the hooks work as on Windows. A click opens a native menu (**Resize**,
+**Show status**, **Quit Seal Pet**); the status editor is not on the Mac yet, so the
+bubble's words, colors and auto hide come from
+`~/Library/Application Support/seal-pet/status.txt` (the same format as on Windows).
+
+```bash
+cargo build --release
+./target/release/seal-pet --install-hooks
+./target/release/seal-pet &
+```
+
+Then restart Claude Code. The seal has no Dock icon; quit it from its menu. Keep the
+binary where it is (or copy it somewhere permanent and run `--install-hooks` from
+there), since the hooks run it by path.
+
+To start it at login, save this as `~/Library/LaunchAgents/com.seal-pet.plist`
+(with your path), then run `launchctl load ~/Library/LaunchAgents/com.seal-pet.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.seal-pet</string>
+  <key>ProgramArguments</key><array><string>/Users/you/seal-pet/target/release/seal-pet</string></array>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
+```
 
 ## Install a release
 
