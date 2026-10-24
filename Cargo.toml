@@ -1,6 +1,6 @@
 [package]
 name = "ai-mascot-hook"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "A tiny desktop seal that shows what Claude Code is doing"
 
