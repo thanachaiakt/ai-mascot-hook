@@ -59,9 +59,19 @@ Hook ทำงานเฉพาะ Claude Code ที่รันบนเค�
 
 ## ติดตั้งบน Windows
 
-ต้องใช้ Windows 10 ขึ้นไปแบบ 64 บิต ตอนนี้ยังไม่มีไฟล์สำเร็จรูปให้ดาวน์โหลด
-จึงต้อง build เอง (ประมาณ 1 นาที) ไฟล์ exe ที่ได้ไม่ต้องติดตั้งโปรแกรมอื่นเพิ่ม
+ต้องใช้ Windows 10 ขึ้นไปแบบ 64 บิต
 Claude Code ไม่บังคับ (ถ้าไม่มี แมวน้ำก็ยังรันได้ และสั่งเองด้วย `--set` ได้)
+
+**ใช้ตัวติดตั้ง (ง่ายสุด)** ดาวน์โหลด `ai-mascot-hook-<version>-setup.exe` จากหน้า
+[Releases](https://github.com/thanachaiakt/ai-mascot-status/releases) แล้วรัน
+ตัวติดตั้งลงให้เฉพาะผู้ใช้คนนี้ (ไม่ต้องใช้สิทธิ์ admin) ไว้ที่ `%LOCALAPPDATA%\Programs\ai-mascot-hook`
+ก่อนจะแตะ Claude Code จะมีหน้า **Connect to Claude Code** อธิบายว่าจะเพิ่มอะไรลงใน
+`~\.claude\settings.json` และขออนุญาตก่อน ถ้าไม่ต้องการ hook ให้เอาเครื่องหมายถูกออก
+เลือกให้แมวน้ำเปิดเองตอนเข้า Windows ได้ด้วย ติดตั้งเสร็จแล้วให้เปิด Claude Code ใหม่
+ถอนการติดตั้งได้จาก **Settings > Apps** ซึ่งจะลบ hook ออกให้ด้วย
+ในหน้าเดียวกันมีไฟล์ `.zip` ที่มีแค่ exe สำหรับติดตั้งเองตามขั้นตอนด้านล่าง
+
+**ติดตั้งเอง**
 
 1. **Build** ติดตั้ง Rust จาก <https://rustup.rs> (ข้ามได้ถ้าสั่ง `cargo --version` ได้อยู่แล้ว)
    แล้วเปิด PowerShell ในโฟลเดอร์โปรเจกต์ และรัน
@@ -96,8 +106,22 @@ Claude desktop app ใช้ได้เช่นกัน แต่เป็น
 
 ## ติดตั้งบน macOS
 
-ต้องใช้ macOS 11 ขึ้นไป (ชิป Apple หรือ Intel) ตอนนี้ยังไม่มีไฟล์สำเร็จรูปให้ดาวน์โหลดสำหรับ Mac
-จึงต้อง build เอง (ประมาณ 1 นาที) แมวน้ำไม่มีไอคอนใน Dock
+ต้องใช้ macOS 11 ขึ้นไป (ชิป Apple หรือ Intel) แมวน้ำไม่มีไอคอนใน Dock
+
+**ติดตั้งจาก release (ง่ายสุด)** ดาวน์โหลด `ai-mascot-hook-<version>-macos.tar.gz`
+(ไฟล์เดียวใช้ได้ทั้งสองชิป) จากหน้า [Releases](https://github.com/thanachaiakt/ai-mascot-status/releases)
+แล้วรันใน Terminal
+
+```bash
+tar -xzf ~/Downloads/ai-mascot-hook-*-macos.tar.gz -C ~/Downloads
+~/Downloads/ai-mascot-hook-*-macos/install.sh
+```
+
+สคริปต์จะ copy โปรแกรมไปไว้ที่ `~/bin` อธิบายว่าจะเพิ่มอะไรลงใน `~/.claude/settings.json`
+แล้วถามก่อนเพิ่ม hook ตั้งให้แมวน้ำเปิดเองตอน login และเปิดแมวน้ำให้เลย
+เสร็จแล้วให้เปิด Claude Code ใหม่ `install.sh --uninstall` ใช้ถอนการติดตั้ง (ค่าที่ตั้งไว้ยังอยู่)
+
+**ติดตั้งเอง** (build เองครั้งเดียว ประมาณ 1 นาที)
 
 1. **ติดตั้ง Rust** จาก <https://rustup.rs> (ข้ามได้ถ้าสั่ง `cargo --version` ได้อยู่แล้ว)
 2. **Build** เปิด Terminal ในโฟลเดอร์โปรเจกต์ แล้วรัน

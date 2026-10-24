@@ -57,9 +57,19 @@ Hooks only fire for Claude Code running on this computer. Nothing is sent over t
 
 ## Install on Windows
 
-Needs 64-bit Windows 10 or later. There is no prebuilt download yet, so build it once
-(about a minute). The built exe needs no runtime or installer. Claude Code is optional
+Needs 64-bit Windows 10 or later. Claude Code is optional
 (without it the seal still runs, and you can drive it by hand with `--set`).
+
+**With the installer (easiest).** Download `ai-mascot-hook-<version>-setup.exe` from the
+[Releases](https://github.com/thanachaiakt/ai-mascot-status/releases) page and run it. It
+installs for your user only (no admin prompt) into `%LOCALAPPDATA%\Programs\ai-mascot-hook`.
+Before it touches Claude Code it shows a **Connect to Claude Code** page that explains what
+it will add to `~\.claude\settings.json` and asks for permission; untick the box to skip
+the hooks. It can also start the seal at sign-in. Restart Claude Code afterwards.
+Uninstall it from **Settings > Apps**: that also removes the hooks.
+The same page has a plain `.zip` with only the exe, for the manual steps below.
+
+**By hand.**
 
 1. **Build.** Install Rust from <https://rustup.rs> (skip if `cargo --version` already
    works), then in PowerShell, inside the project folder:
@@ -93,8 +103,22 @@ the seal reads those copies as well and follows whichever was written last.
 
 ## Install on macOS
 
-Needs macOS 11 or later (Apple silicon or Intel). There is no prebuilt Mac download yet,
-so build it once (about a minute). The seal has no Dock icon.
+Needs macOS 11 or later (Apple silicon or Intel). The seal has no Dock icon.
+
+**From a release (easiest).** Download `ai-mascot-hook-<version>-macos.tar.gz` (one binary
+for both chip types) from the [Releases](https://github.com/thanachaiakt/ai-mascot-status/releases)
+page, then in Terminal:
+
+```bash
+tar -xzf ~/Downloads/ai-mascot-hook-*-macos.tar.gz -C ~/Downloads
+~/Downloads/ai-mascot-hook-*-macos/install.sh
+```
+
+It copies the binary to `~/bin`, explains what it will add to `~/.claude/settings.json`
+and asks before adding the hooks, sets the seal to start at login, and starts it.
+Restart Claude Code afterwards. `install.sh --uninstall` undoes it (settings stay).
+
+**By hand** (build it once, about a minute):
 
 1. **Install Rust** from <https://rustup.rs> (skip if `cargo --version` already works).
 2. **Build.** In Terminal, inside the project folder:

@@ -34,6 +34,8 @@ Per platform:
   `editor.rs` (editor panel, NSTextFields, NSColorPanel).
 - `assets/`: frame strips. `build.rs` cuts each into one PNG per frame, embedded with
   `include_bytes!`, so only the frame on screen is unpacked. `tools/`: art and hook scripts.
+- `installer/windows.iss` (Inno Setup) and `tools/install-mac.sh` are the release installers.
+  `.github/workflows/release.yml` builds them on a `v*` tag; the tag must match `Cargo.toml`'s version.
 
 ## Commands
 
