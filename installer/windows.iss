@@ -1,4 +1,4 @@
-; Inno Setup script for the Windows installer. The release workflow builds it with
+﻿; Inno Setup script for the Windows installer. The release workflow builds it with
 ;   iscc /DAppVersion=<version> installer\windows.iss
 ; after `cargo build --release`, and writes target\installer\ai-mascot-hook-<version>-setup.exe.
 
@@ -28,8 +28,52 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayIcon={app}\ai-mascot-hook.exe
 
+; Inno Setup ships no Thai wizard text, so the texts a user reads are overridden here. Anything
+; not listed (rare error dialogs) stays English.
+[Messages]
+SetupAppTitle=ติดตั้ง
+SetupWindowTitle=ติดตั้ง - %1
+UninstallAppTitle=ถอนการติดตั้ง
+UninstallAppFullTitle=ถอนการติดตั้ง %1
+ButtonBack=< &ย้อนกลับ
+ButtonNext=&ถัดไป >
+ButtonInstall=&ติดตั้ง
+ButtonOK=ตกลง
+ButtonCancel=ยกเลิก
+ButtonYes=&ใช่
+ButtonNo=&ไม่
+ButtonFinish=&เสร็จสิ้น
+ButtonBrowse=&เลือก...
+ExitSetupTitle=ออกจากการติดตั้ง
+ExitSetupMessage=การติดตั้งยังไม่เสร็จ ถ้าออกตอนนี้ โปรแกรมจะไม่ถูกติดตั้ง%n%nต้องการออกหรือไม่?
+WelcomeLabel1=ยินดีต้อนรับสู่การติดตั้ง [name]
+WelcomeLabel2=[name/ver] คือแมวน้ำตัวเล็กบนเดสก์ท็อป ที่แสดงให้เห็นว่า Claude Code กำลังทำอะไรอยู่: คิด ทำงาน รอคุณอนุญาต หรือเสร็จแล้ว%n%nแนะนำให้ปิดโปรแกรมอื่นก่อนดำเนินการต่อ
+ReadyLabel1=พร้อมติดตั้งแล้ว
+ReadyLabel2a=กด "ติดตั้ง" เพื่อเริ่มติดตั้ง หรือ "ย้อนกลับ" ถ้าต้องการแก้ไขตัวเลือก
+ReadyLabel2b=กด "ติดตั้ง" เพื่อเริ่มติดตั้ง
+InstallingLabel=กำลังติดตั้ง [name] กรุณารอสักครู่...
+FinishedHeadingLabel=ติดตั้ง [name] เสร็จแล้ว
+FinishedLabelNoIcons=ติดตั้ง [name] ในเครื่องของคุณเรียบร้อยแล้ว
+FinishedLabel=ติดตั้ง [name] ในเครื่องของคุณเรียบร้อยแล้ว เปิดโปรแกรมได้จากทางลัดในเมนู Start%n%nถ้าเพิ่มฮุกให้ Claude Code ไว้ ให้เปิด Claude Code ใหม่ด้วย เพื่อให้โหลดฮุกนั้น
+ConfirmUninstall=ต้องการถอน %1 และส่วนประกอบทั้งหมดออกจากเครื่องหรือไม่?
+UninstallStatusLabel=กำลังถอน %1 ออกจากเครื่อง กรุณารอสักครู่...
+UninstalledAll=ถอน %1 ออกจากเครื่องเรียบร้อยแล้ว
+UninstalledMost=ถอน %1 เรียบร้อยแล้ว%n%nบางรายการลบไม่ได้ ลบเองได้ภายหลัง
+UninstallOpenError=เปิดไฟล์ %1 ไม่ได้ จึงถอนการติดตั้งต่อไม่ได้
+
+[CustomMessages]
+TaskStartup=เปิดแมวน้ำให้อัตโนมัติเมื่อเข้าสู่ระบบ Windows
+TaskStartupGroup=ตัวเลือกเพิ่มเติม:
+RunHooks=กำลังเพิ่มฮุกให้ Claude Code...
+RunStart=เปิดแมวน้ำเดี๋ยวนี้
+HooksTitle=เชื่อมต่อกับ Claude Code
+HooksSubtitle=ai-mascot-hook ขออนุญาตแก้ไขไฟล์ตั้งค่าของ Claude Code
+HooksAllow=อนุญาตให้เพิ่มฮุกลงใน settings.json
+PurgeAsk=ต้องการลบการตั้งค่าของ ai-mascot-hook ออกด้วยหรือไม่?%n%nจะลบ: ตำแหน่งที่วางแมวน้ำ ขนาด ข้อความและสีของฟองสถานะ (status.txt) และไฟล์สถานะ ในโฟลเดอร์%n%1%n%nถ้าตอบ "ไม่" การตั้งค่าจะอยู่ต่อ และกลับมาใช้ได้เมื่อติดตั้งใหม่
+HooksBody=Claude Code จะรันคำสั่งเล็ก ๆ ที่เรียกว่า "ฮุก" เมื่อมีเหตุการณ์เกิดขึ้น เช่น คุณส่งข้อความ เครื่องมือเริ่มทำงาน Claude ขออนุญาต หรือจบหนึ่งรอบ เพื่อให้แมวน้ำขยับตาม Claude ตัวติดตั้งจะเพิ่มฮุกหนึ่งตัวต่อหนึ่งเหตุการณ์ ลงในไฟล์:%n    %1\.claude\settings.json%n%nแต่ละฮุกรันคำสั่ง "ai-mascot-hook.exe --set <สถานะ>" ซึ่งเขียนคำเดียวลงไฟล์ในโฟลเดอร์ %%LOCALAPPDATA%%i-mascot-hook แล้วจบทันที ไม่มีการส่งข้อมูลผ่านอินเทอร์เน็ตเลย%n%n- ไฟล์เดิมจะถูกสำรองไว้ก่อน เป็น settings.json.bak-<เวลา>%n- ฮุกและการตั้งค่าอื่นของคุณอยู่ครบ ฮุก ai-mascot-hook รุ่นเก่าจะถูกแทนที่%n- ตอนถอนการติดตั้ง ฮุกเหล่านี้จะถูกเอาออกให้%n- เปิด Claude Code ใหม่หลังติดตั้ง เพื่อให้โหลดฮุก%n%nถ้าไม่อนุญาต แมวน้ำยังทำงานได้ แต่จะไม่ขยับตาม Claude ถ้าอยากเพิ่มฮุกทีหลัง ให้รันตัวติดตั้งนี้อีกครั้ง
+
 [Tasks]
-Name: "startup"; Description: "Start the seal when I sign in to Windows"
+Name: "startup"; Description: "{cm:TaskStartup}"; GroupDescription: "{cm:TaskStartupGroup}"
 
 [Files]
 Source: "..\target\release\ai-mascot-hook.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -42,8 +86,8 @@ Name: "{group}\ai-mascot-hook"; Filename: "{app}\ai-mascot-hook.exe"
 Name: "{userstartup}\ai-mascot-hook"; Filename: "{app}\ai-mascot-hook.exe"; Tasks: startup
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-hooks.ps1"" -Exe ""{app}\ai-mascot-hook.exe"""; StatusMsg: "Installing the Claude Code hooks..."; Flags: runhidden waituntilterminated; Check: HooksAllowed
-Filename: "{app}\ai-mascot-hook.exe"; Description: "Start the seal now"; Flags: nowait postinstall skipifsilent
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-hooks.ps1"" -Exe ""{app}\ai-mascot-hook.exe"""; StatusMsg: "{cm:RunHooks}"; Flags: runhidden waituntilterminated; Check: HooksAllowed
+Filename: "{app}\ai-mascot-hook.exe"; Description: "{cm:RunStart}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM ai-mascot-hook.exe"; Flags: runhidden waituntilterminated; RunOnceId: "StopSeal"
@@ -52,28 +96,17 @@ Filename: "{app}\ai-mascot-hook.exe"; Parameters: "--remove-hooks"; Flags: runhi
 [Code]
 var
   HooksPage: TInputOptionWizardPage;
+  PurgeSettings: Boolean;
 
 // Editing another program's settings needs the user's say-so, so this page spells out
 // exactly what changes in settings.json before asking
 procedure InitializeWizard;
 begin
   HooksPage := CreateInputOptionPage(wpWelcome,
-    'Connect to Claude Code',
-    'ai-mascot-hook needs your permission to edit Claude Code''s settings.',
-    'Claude Code runs small commands, called hooks, when something happens: you send a ' +
-    'prompt, a tool runs, Claude asks for permission, or a turn finishes. To make the seal ' +
-    'follow Claude, setup adds one hook per event to:' + #13#10 +
-    '    ' + ExpandConstant('{%USERPROFILE}') + '\.claude\settings.json' + #13#10#13#10 +
-    'Each hook runs "ai-mascot-hook.exe --set <state>", which writes one word to a file in ' +
-    '%LOCALAPPDATA%\ai-mascot-hook and exits. Nothing is sent over the network.' + #13#10#13#10 +
-    '- The current file is backed up first as settings.json.bak-<time>.' + #13#10 +
-    '- Your other hooks and settings are kept; older ai-mascot-hook hooks are replaced.' + #13#10 +
-    '- Uninstalling removes these hooks again.' + #13#10 +
-    '- Restart Claude Code afterwards so it loads them.' + #13#10#13#10 +
-    'Without this the seal still runs, but it will not react to Claude. To add the hooks later, ' +
-    'run this setup again.',
+    CustomMessage('HooksTitle'), CustomMessage('HooksSubtitle'),
+    FmtMessage(CustomMessage('HooksBody'), [ExpandConstant('{%USERPROFILE}')]),
     False, False);
-  HooksPage.Add('Allow setup to add the hooks to settings.json');
+  HooksPage.Add(CustomMessage('HooksAllow'));
   HooksPage.Values[0] := True;
 end;
 
@@ -89,4 +122,41 @@ var
 begin
   Exec('taskkill.exe', '/F /IM ai-mascot-hook.exe', '', SW_HIDE, ewWaitUntilTerminated, Code);
   Result := '';
+end;
+
+// The seal's own settings (placement, status.txt, state) live outside the install folder, so
+// uninstalling only clears them if the user says so. Silent uninstalls keep them.
+function InitializeUninstall: Boolean;
+begin
+  Result := True;
+  PurgeSettings := (not UninstallSilent) and
+    (MsgBox(FmtMessage(CustomMessage('PurgeAsk'), [ExpandConstant('{localappdata}i-mascot-hook')]),
+      mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES);
+end;
+
+// Hosts that redirect %LOCALAPPDATA% writes (the Claude desktop app, from the Store) keep
+// their own copy of the folder under Packages\<app>\LocalCache\Local
+procedure PurgeStoreCopies;
+var
+  Packages: String;
+  Found: TFindRec;
+begin
+  Packages := ExpandConstant('{localappdata}\Packages');
+  if FindFirst(Packages + '*', Found) then
+  try
+    repeat
+      DelTree(Packages + Found.Name + '\LocalCache\Locali-mascot-hook', True, True, True);
+    until not FindNext(Found);
+  finally
+    FindClose(Found);
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if (CurUninstallStep = usPostUninstall) and PurgeSettings then
+  begin
+    DelTree(ExpandConstant('{localappdata}i-mascot-hook'), True, True, True);
+    PurgeStoreCopies;
+  end;
 end;

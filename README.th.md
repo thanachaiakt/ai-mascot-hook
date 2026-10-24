@@ -18,6 +18,7 @@
 
 ## สารบัญ
 
+- [ดาวน์โหลด](#ดาวน์โหลด)
 - [โปรแกรมทำงานอย่างไร](#โปรแกรมทำงานอย่างไร)
 - [ติดตั้งบน Windows](#ติดตั้งบน-windows)
 - [ติดตั้งบน macOS](#ติดตั้งบน-macos)
@@ -25,6 +26,19 @@
 - [การเก็บ setting](#การเก็บ-setting)
 - [ถอนการติดตั้ง](#ถอนการติดตั้ง)
 - [แก้ปัญหา](#แก้ปัญหา)
+
+## ดาวน์โหลด
+
+โหลดตัวติดตั้งจากหน้า [release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
+เลื่อนลงไปที่หัวข้อ **Assets** แล้วเลือกไฟล์ให้ตรงกับระบบของคุณ
+
+| ระบบ | ไฟล์ใน Assets | ขั้นต่อไป |
+| --- | --- | --- |
+| Windows 10 ขึ้นไป (64 บิต) | `ai-mascot-hook-<version>-setup.exe` | [รันไฟล์](#ตัวติดตั้งบน-windows) |
+| macOS 11 ขึ้นไป (ชิป Apple หรือ Intel) | `ai-mascot-hook-<version>-macos.tar.gz` | [รัน `install.sh`](#ตัวติดตั้งบน-macos) |
+
+อยาก build เอง ดู [Windows ติดตั้งเอง](#windows-ติดตั้งเอง),
+[macOS ติดตั้งเอง](#macos-ติดตั้งเอง) หรือ [Build เอง](#build-เอง)
 
 ## โปรแกรมทำงานอย่างไร
 
@@ -62,16 +76,25 @@ Hook ทำงานเฉพาะ Claude Code ที่รันบนเค�
 ต้องใช้ Windows 10 ขึ้นไปแบบ 64 บิต
 Claude Code ไม่บังคับ (ถ้าไม่มี แมวน้ำก็ยังรันได้ และสั่งเองด้วย `--set` ได้)
 
-**ใช้ตัวติดตั้ง (ง่ายสุด)** ดาวน์โหลด `ai-mascot-hook-<version>-setup.exe` จากหน้า
-[release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest) แล้วรัน
-ตัวติดตั้งลงให้เฉพาะผู้ใช้คนนี้ (ไม่ต้องใช้สิทธิ์ admin) ไว้ที่ `%LOCALAPPDATA%\Programs\ai-mascot-hook`
-ก่อนจะแตะ Claude Code จะมีหน้า **Connect to Claude Code** อธิบายว่าจะเพิ่มอะไรลงใน
-`~\.claude\settings.json` และขออนุญาตก่อน ถ้าไม่ต้องการ hook ให้เอาเครื่องหมายถูกออก
-เลือกให้แมวน้ำเปิดเองตอนเข้า Windows ได้ด้วย ติดตั้งเสร็จแล้วให้เปิด Claude Code ใหม่
-ถอนการติดตั้งได้จาก **Settings > Apps** ซึ่งจะลบ hook ออกให้ด้วย
-ในหน้าเดียวกันมีไฟล์ `.zip` ที่มีแค่ exe สำหรับติดตั้งเองตามขั้นตอนด้านล่าง
+### ตัวติดตั้งบน Windows
 
-**ติดตั้งเอง**
+วิธีที่ง่ายสุด ตัวติดตั้งลงให้เฉพาะผู้ใช้คนนี้ (ไม่ต้องใช้สิทธิ์ admin)
+ไว้ที่ `%LOCALAPPDATA%\Programs\ai-mascot-hook`
+
+1. **ดาวน์โหลด** เปิดหน้า [release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
+   เลื่อนลงไปที่ **Assets** แล้วโหลด `ai-mascot-hook-<version>-setup.exe`
+2. **รันไฟล์** ดับเบิลคลิกไฟล์ที่โหลดมา
+3. **เชื่อมกับ Claude Code** ก่อนจะแตะ Claude Code ตัวติดตั้งจะมีหน้าอธิบายว่าจะเพิ่มอะไรลงใน
+   `~\.claude\settings.json` และขออนุญาตก่อน ถ้าไม่ต้องการ hook ให้เอาเครื่องหมายถูกออก
+4. **ให้เปิดเองตอนเข้า Windows (ไม่บังคับ)** ติ๊กตัวเลือกในตัวติดตั้ง
+5. **เปิด Claude Code ใหม่** แล้วส่งข้อความหา Claude แมวน้ำจะเปลี่ยนเป็นท่าตบมือ
+
+ถอนการติดตั้งได้จาก **Settings > Apps** ซึ่งจะลบ hook ออกให้ด้วย และถามว่าจะลบค่าที่ตั้งไว้
+(`%LOCALAPPDATA%i-mascot-hook`: ตำแหน่ง ขนาด ข้อความและสีของฟองสถานะ) ทิ้งด้วยหรือไม่
+หน้าต่างของตัวติดตั้งทั้งหมดเป็นภาษาไทย
+ใน Assets มีไฟล์ `.zip` ที่มีแค่ exe สำหรับติดตั้งเองตามขั้นตอนด้านล่างด้วย
+
+### Windows ติดตั้งเอง
 
 1. **Build** ติดตั้ง Rust จาก <https://rustup.rs> (ข้ามได้ถ้าสั่ง `cargo --version` ได้อยู่แล้ว)
    แล้วเปิด PowerShell ในโฟลเดอร์โปรเจกต์ และรัน
@@ -91,7 +114,8 @@ Claude Code ไม่บังคับ (ถ้าไม่มี แมวน�
    ```
 
    โปรแกรมจะสำรอง `~\.claude\settings.json` ไว้เป็น `settings.json.bak-<เวลา>` ก่อน
-   แล้วเพิ่ม hook ตามตารางด้านบน โดยเก็บ hook และค่าอื่นๆ ที่คุณมีอยู่ไว้ครบ
+   แล้วเพิ่ม hook ตามตารางด้านบน โดยเก็บ hook และค่าอื่นๆ ที่คุณมีอยู่ไว้ครบตามลำดับเดิม
+   เพิ่มหรือแทนที่เฉพาะ hook ของ ai-mascot-hook เท่านั้น และบันทึกไฟล์เป็น JSON แบบย่อหน้า
    (ถ้ามี repo อยู่ในเครื่อง ใช้
    `powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe <path>` แทนได้ ผลเหมือนกัน)
 4. **เปิด Claude Code ใหม่** ปิดแล้วเปิดใหม่ (หรือเปิด session ใหม่ใน Claude desktop app)
@@ -108,20 +132,29 @@ Claude desktop app ใช้ได้เช่นกัน แต่เป็น
 
 ต้องใช้ macOS 11 ขึ้นไป (ชิป Apple หรือ Intel) แมวน้ำไม่มีไอคอนใน Dock
 
-**ติดตั้งจาก release (ง่ายสุด)** ดาวน์โหลด `ai-mascot-hook-<version>-macos.tar.gz`
-(ไฟล์เดียวใช้ได้ทั้งสองชิป) จากหน้า [release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
-แล้วรันใน Terminal
+### ตัวติดตั้งบน macOS
 
-```bash
-tar -xzf ~/Downloads/ai-mascot-hook-*-macos.tar.gz -C ~/Downloads
-~/Downloads/ai-mascot-hook-*-macos/install.sh
-```
+วิธีที่ง่ายสุด ไฟล์เดียวใช้ได้ทั้งสองชิป
 
-สคริปต์จะ copy โปรแกรมไปไว้ที่ `~/bin` อธิบายว่าจะเพิ่มอะไรลงใน `~/.claude/settings.json`
-แล้วถามก่อนเพิ่ม hook ตั้งให้แมวน้ำเปิดเองตอน login และเปิดแมวน้ำให้เลย
-เสร็จแล้วให้เปิด Claude Code ใหม่ `install.sh --uninstall` ใช้ถอนการติดตั้ง (ค่าที่ตั้งไว้ยังอยู่)
+1. **ดาวน์โหลด** เปิดหน้า [release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
+   เลื่อนลงไปที่ **Assets** แล้วโหลด `ai-mascot-hook-<version>-macos.tar.gz`
+2. **แตกไฟล์แล้วรัน** ใน Terminal
 
-**ติดตั้งเอง** (build เองครั้งเดียว ประมาณ 1 นาที)
+   ```bash
+   tar -xzf ~/Downloads/ai-mascot-hook-*-macos.tar.gz -C ~/Downloads
+   ~/Downloads/ai-mascot-hook-*-macos/install.sh
+   ```
+
+   สคริปต์จะ copy โปรแกรมไปไว้ที่ `~/bin` อธิบายว่าจะเพิ่มอะไรลงใน `~/.claude/settings.json`
+   แล้วถามก่อนเพิ่ม hook ตั้งให้แมวน้ำเปิดเองตอน login และเปิดแมวน้ำให้เลย
+3. **เปิด Claude Code ใหม่** แล้วส่งข้อความหา Claude แมวน้ำจะเปลี่ยนเป็นท่าตบมือ
+
+`install.sh --uninstall` ใช้ถอนการติดตั้ง และถามว่าจะลบค่าที่ตั้งไว้ด้วยหรือไม่
+(`--purge` ลบโดยไม่ถาม `--keep` เก็บไว้เสมอ) ข้อความของสคริปต์เป็นภาษาไทย
+
+### macOS ติดตั้งเอง
+
+build เองครั้งเดียว ประมาณ 1 นาที
 
 1. **ติดตั้ง Rust** จาก <https://rustup.rs> (ข้ามได้ถ้าสั่ง `cargo --version` ได้อยู่แล้ว)
 2. **Build** เปิด Terminal ในโฟลเดอร์โปรเจกต์ แล้วรัน

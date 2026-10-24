@@ -3,12 +3,15 @@
 # points Claude Code's hooks at it, starts it at login and starts it now.
 #   ./install.sh             install or upgrade, asking before it edits ~/.claude/settings.json
 #   ./install.sh --yes       the same without asking
-#   ./install.sh --uninstall remove the hooks, the login item and the binary (settings stay)
+#   ./install.sh --uninstall remove the hooks, the login item and the binary; asks whether to
+#                            also delete the seal's settings (--uninstall --purge deletes them
+#                            without asking, --uninstall --keep never does)
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 bin="$HOME/bin/ai-mascot-hook"
 plist="$HOME/Library/LaunchAgents/com.ai-mascot-hook.plist"
+data="$HOME/Library/Application Support/ai-mascot-hook"
 
 stop_seal() {
     launchctl unload "$plist" 2>/dev/null || true
@@ -19,7 +22,18 @@ if [ "${1:-}" = "--uninstall" ]; then
     stop_seal
     [ -x "$bin" ] && "$bin" --remove-hooks
     rm -f "$plist" "$bin"
-    echo "Removed. Settings are left in ~/Library/Application Support/ai-mascot-hook/."
+    # the seal's own settings (placement, status.txt, state) sit outside the binary's folder,
+    # so they go only if the user says so
+    purge=n
+    case "${2:-}" in
+        --purge) purge=y ;;
+        --keep) ;;
+        *) read -r -p "ลบการตั้งค่าของ ai-mascot-hook ด้วยหรือไม่ (ตำแหน่ง ข้อความและสีของฟองสถานะ)? [y/N] " purge </dev/tty || purge=n ;;
+    esac
+    case "$purge" in
+        [Yy]*) rm -rf "$data"; echo "ถอนการติดตั้งแล้ว และลบการตั้งค่าใน $data เรียบร้อย" ;;
+        *) echo "ถอนการติดตั้งแล้ว การตั้งค่ายังอยู่ใน $data (ลบเองได้ถ้าไม่ใช้แล้ว)" ;;
+    esac
     exit 0
 fi
 
@@ -33,25 +47,25 @@ xattr -d com.apple.quarantine "$bin" 2>/dev/null || true
 # editing another program's settings needs the user's say-so: say what changes, then ask
 cat <<EOF
 
-Claude Code runs small commands, called hooks, when something happens: you send a prompt,
-a tool runs, Claude asks for permission, or a turn finishes. To make the seal follow Claude,
-this adds one hook per event to:
+Claude Code จะรันคำสั่งเล็ก ๆ ที่เรียกว่า "ฮุก" เมื่อมีเหตุการณ์เกิดขึ้น เช่น คุณส่งข้อความ
+เครื่องมือเริ่มทำงาน Claude ขออนุญาต หรือจบหนึ่งรอบ เพื่อให้แมวน้ำขยับตาม Claude
+ตัวติดตั้งจะเพิ่มฮุกหนึ่งตัวต่อหนึ่งเหตุการณ์ ลงในไฟล์:
     $HOME/.claude/settings.json
 
-Each hook runs "$bin --set <state>", which writes one word to a file in
-~/Library/Application Support/ai-mascot-hook and exits. Nothing is sent over the network.
-- The current file is backed up first as settings.json.bak-<time>.
-- Your other hooks and settings are kept; older ai-mascot-hook hooks are replaced.
-- ./install.sh --uninstall removes these hooks again.
+แต่ละฮุกรันคำสั่ง "$bin --set <สถานะ>" ซึ่งเขียนคำเดียวลงไฟล์ใน
+~/Library/Application Support/ai-mascot-hook แล้วจบทันที ไม่มีการส่งข้อมูลผ่านอินเทอร์เน็ต
+- ไฟล์เดิมจะถูกสำรองไว้ก่อน เป็น settings.json.bak-<เวลา>
+- ฮุกและการตั้งค่าอื่นของคุณอยู่ครบ ฮุก ai-mascot-hook รุ่นเก่าจะถูกแทนที่
+- ./install.sh --uninstall จะเอาฮุกเหล่านี้ออกให้
 
 EOF
 answer=y
 if [ "${1:-}" != "--yes" ]; then
-    read -r -p "Add the hooks to settings.json? [Y/n] " answer </dev/tty || answer=n
+    read -r -p "เพิ่มฮุกลงใน settings.json หรือไม่? [Y/n] " answer </dev/tty || answer=n
 fi
 case "$answer" in
     ""|[Yy]*) "$bin" --install-hooks ;;
-    *) echo "Skipped. The seal runs, but does not follow Claude until you run: $bin --install-hooks" ;;
+    *) echo "ข้ามขั้นตอนนี้ แมวน้ำยังทำงานได้ แต่จะไม่ขยับตาม Claude จนกว่าจะรัน: $bin --install-hooks" ;;
 esac
 
 cat > "$plist" <<EOF
@@ -67,4 +81,4 @@ cat > "$plist" <<EOF
 EOF
 launchctl load "$plist"
 
-echo "Installed $bin. Restart Claude Code so it loads the new hooks."
+echo "ติดตั้ง $bin เรียบร้อย เปิด Claude Code ใหม่เพื่อโหลดฮุก"

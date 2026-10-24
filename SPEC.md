@@ -11,7 +11,13 @@ windows when shown. The status bubble does not intercept pointer input.
 The program displays a status that hooks write. `ai-mascot-hook --set <state>` writes
 the status file; `ai-mascot-hook --install-hooks` points Claude Code's hooks at the
 program (`--remove-hooks` takes them out), and on Windows
-`tools/install-hooks.ps1` does the same.
+`tools/install-hooks.ps1` does the same by running the program. The Windows installer
+(Thai text) and `install-mac.sh` remove the hooks on uninstall and ask whether to delete the
+data folder as well (placement, `status.txt`, state); silent uninstalls keep it. The exe
+carries the seal icon (`assets/icon.ico`, from `tools/make_icon.py`). Only the program's own
+hooks are added, replaced or removed: every other hook and setting stays, in its order.
+The file is rewritten as indented JSON after a `settings.json.bak-<time>` backup, and a
+removal that finds none of its hooks leaves the file alone.
 
 ### macOS
 

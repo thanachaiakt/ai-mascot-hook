@@ -33,8 +33,11 @@ fn main() {
             let word = args.get(1).map(String::as_str).unwrap_or("");
             std::process::exit(if status::write_state(&store::data_dir(), word).is_ok() { 0 } else { 2 });
         }
-        Some("--install-hooks") => std::process::exit(hooks::run(true)),
-        Some("--remove-hooks") => std::process::exit(hooks::run(false)),
+        Some("--install-hooks") => {
+            let exe = args.iter().position(|a| a == "--exe").and_then(|i| args.get(i + 1));
+            std::process::exit(hooks::run(true, exe.map(String::as_str)))
+        }
+        Some("--remove-hooks") => std::process::exit(hooks::run(false, None)),
         _ => {}
     }
     #[cfg(windows)]

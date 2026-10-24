@@ -14,6 +14,19 @@ const STRIPS: [&str; 4] = ["loading", "working", "asking", "completed"];
 fn main() {
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR"));
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=assets/icon.ico");
+    // the exe's own icon (Explorer, shortcuts, the installer). winresource is a Windows-host
+    // build dependency, so a Mac host compiles this block out.
+    #[cfg(windows)]
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        let mut res = winresource::WindowsResource::new();
+        res.set_icon("assets/icon.ico");
+        // embedding needs a resource compiler (the Windows SDK's rc.exe); a build box without one
+        // still gets a working exe, just an iconless one. The release build must not skip it.
+        if let Err(e) = res.compile() {
+            assert!(env::var_os("CI").is_none(), "exe icon: {e}");
+        }
+    }
     for name in STRIPS {
         let path = format!("assets/{name}.png");
         println!("cargo:rerun-if-changed={path}");

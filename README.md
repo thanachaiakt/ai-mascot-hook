@@ -15,6 +15,7 @@ and naps when the turn is done or idle.
 
 ## Contents
 
+- [Download](#download)
 - [How it works](#how-it-works)
 - [Install on Windows](#install-on-windows)
 - [Install on macOS](#install-on-macos)
@@ -24,6 +25,19 @@ and naps when the turn is done or idle.
 - [Troubleshooting](#troubleshooting)
 - [Build from source](#build-from-source)
 - [The art](#the-art)
+
+## Download
+
+Get the installer from the [latest release](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
+page: scroll down to **Assets** and pick the file for your system.
+
+| System | File in Assets | Then |
+| --- | --- | --- |
+| Windows 10+ (64-bit) | `ai-mascot-hook-<version>-setup.exe` | [Run it](#windows-installer) |
+| macOS 11+ (Apple silicon or Intel) | `ai-mascot-hook-<version>-macos.tar.gz` | [Run `install.sh`](#macos-installer) |
+
+Prefer to build it yourself? See [Windows by hand](#windows-by-hand),
+[macOS by hand](#macos-by-hand) or [Build from source](#build-from-source).
 
 ## How it works
 
@@ -60,16 +74,25 @@ Hooks only fire for Claude Code running on this computer. Nothing is sent over t
 Needs 64-bit Windows 10 or later. Claude Code is optional
 (without it the seal still runs, and you can drive it by hand with `--set`).
 
-**With the installer (easiest).** Download `ai-mascot-hook-<version>-setup.exe` from the
-[latest release](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest) page (under **Assets**) and run it. It
-installs for your user only (no admin prompt) into `%LOCALAPPDATA%\Programs\ai-mascot-hook`.
-Before it touches Claude Code it shows a **Connect to Claude Code** page that explains what
-it will add to `~\.claude\settings.json` and asks for permission; untick the box to skip
-the hooks. It can also start the seal at sign-in. Restart Claude Code afterwards.
-Uninstall it from **Settings > Apps**: that also removes the hooks.
-The same page has a plain `.zip` with only the exe, for the manual steps below.
+### Windows installer
 
-**By hand.**
+Easiest way. The installer is for your user only (no admin prompt) and installs into
+`%LOCALAPPDATA%\Programs\ai-mascot-hook`.
+
+1. **Download.** Open the [latest release](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
+   page, scroll to **Assets** and download `ai-mascot-hook-<version>-setup.exe`.
+2. **Run it.** Double-click the file.
+3. **Connect to Claude Code.** Before it touches Claude Code, the installer shows a page
+   that explains what it will add to `~\.claude\settings.json` and asks for permission.
+   Untick the box to skip the hooks.
+4. **Start at sign-in (optional).** Tick the option in the installer.
+5. **Restart Claude Code.** Send Claude a message: the seal should start clapping.
+
+To remove it, use **Settings > Apps**; that also removes the hooks, and asks whether to delete
+the seal's settings (`%LOCALAPPDATA%i-mascot-hook`) too. The installer's own pages are in Thai.
+Assets also has a plain `.zip` with only the exe, for the steps below.
+
+### Windows by hand
 
 1. **Build.** Install Rust from <https://rustup.rs> (skip if `cargo --version` already
    works), then in PowerShell, inside the project folder:
@@ -89,7 +112,8 @@ The same page has a plain `.zip` with only the exe, for the manual steps below.
    ```
 
    It backs up `~\.claude\settings.json` as `settings.json.bak-<time>`, adds the hooks from
-   the table above, and keeps every other hook and setting you have.
+   the table above, and keeps every other hook and setting you have, in the same order.
+   Only ai-mascot-hook's own hooks are added or replaced; the file is saved as indented JSON.
    (From a clone of the repo, `powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe <path>`
    does the same.)
 4. **Restart Claude Code.** A session that was open before the install does not run the
@@ -105,20 +129,30 @@ the seal reads those copies as well and follows whichever was written last.
 
 Needs macOS 11 or later (Apple silicon or Intel). The seal has no Dock icon.
 
-**From a release (easiest).** Download `ai-mascot-hook-<version>-macos.tar.gz` (one binary
-for both chip types) from the [latest release](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
-page, then in Terminal:
+### macOS installer
 
-```bash
-tar -xzf ~/Downloads/ai-mascot-hook-*-macos.tar.gz -C ~/Downloads
-~/Downloads/ai-mascot-hook-*-macos/install.sh
-```
+Easiest way. One binary works on both chip types.
 
-It copies the binary to `~/bin`, explains what it will add to `~/.claude/settings.json`
-and asks before adding the hooks, sets the seal to start at login, and starts it.
-Restart Claude Code afterwards. `install.sh --uninstall` undoes it (settings stay).
+1. **Download.** Open the [latest release](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
+   page, scroll to **Assets** and download `ai-mascot-hook-<version>-macos.tar.gz`.
+2. **Unpack and run it** in Terminal:
 
-**By hand** (build it once, about a minute):
+   ```bash
+   tar -xzf ~/Downloads/ai-mascot-hook-*-macos.tar.gz -C ~/Downloads
+   ~/Downloads/ai-mascot-hook-*-macos/install.sh
+   ```
+
+   The script copies the binary to `~/bin`, explains what it will add to
+   `~/.claude/settings.json` and asks before adding the hooks, sets the seal to start at
+   login, and starts it.
+3. **Restart Claude Code.** Send Claude a message: the seal should start clapping.
+
+`install.sh --uninstall` undoes it and asks whether to delete the seal's settings too
+(`--purge` deletes them without asking, `--keep` keeps them). The script's prompts are in Thai.
+
+### macOS by hand
+
+Build it once, about a minute:
 
 1. **Install Rust** from <https://rustup.rs> (skip if `cargo --version` already works).
 2. **Build.** In Terminal, inside the project folder:
