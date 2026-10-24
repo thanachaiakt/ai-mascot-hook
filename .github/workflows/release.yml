@@ -95,4 +95,7 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           files: dist/*
+          # Release notes can't resolve repo-relative paths, so the banner uses the raw URL.
+          body: |
+            <p align="center"><img src="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/assets/social-preview.png" width="640" alt="ai-mascot-hook seals"></p>
           generate_release_notes: true

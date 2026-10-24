@@ -15,5 +15,8 @@ Follow the "Release notes for a tag" section of `docs/en/commit-convention.md`.
    bodies carry an English and a Thai block; reuse the Thai wording for the Thai section.
 5. Output the template from the doc: English section, `---`, then Thai section with the same
    items in the same order. Omit empty sections. Fill the compare link from `git remote get-url origin`.
+   The release workflow already puts the seal banner (`assets/social-preview.png`) above the
+   notes. If the notes are pasted into a release by hand, start with the same `<img>` using the
+   raw.githubusercontent.com URL for the tag.
 6. Every line must trace to a commit. Do not invent changes or numbers.
 7. Print the notes. Write a file or run `gh release create/edit` only if the user asks.
