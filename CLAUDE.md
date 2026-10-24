@@ -69,6 +69,13 @@ target/release/ai-mascot-hook.exe --set asking            # drive the running se
 - Comments explain why, in plain sentences, at the density of the surrounding code.
 - When behavior changes, update `SPEC.md`, `README.md` and `README.th.md` together.
 
+## Commits and release notes
+
+Commit messages follow Conventional Commits with an English subject and a body in English
+then Thai; the rules, scopes and release-note template are
+in `docs/en/commit-convention.md` (Thai: `docs/th/`). Release notes for a tag are English
+then Thai, built from `git log <previous tag>..HEAD`; the `release-notes` skill does this.
+
 ## Verifying UI changes on Windows
 
 Launch the exe and take screenshots with `System.Drawing` `CopyFromScreen`. Read the
