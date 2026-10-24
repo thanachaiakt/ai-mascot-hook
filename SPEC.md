@@ -12,15 +12,33 @@ The program displays a status that hooks write. `ai-mascot-hook --set <state>` w
 the status file; `ai-mascot-hook --install-hooks` points Claude Code's hooks at the
 program (`--remove-hooks` takes them out), and on Windows
 `tools/install-hooks.ps1` does the same by running the program. The Windows installer
-(Thai text) and `install-mac.sh` remove the hooks on uninstall and ask whether to delete the
-data folder as well (placement, `status.txt`, state); silent uninstalls keep it. Running a newer installer over an install updates it: the version found is shown, settings
-and hooks (already agreed to) are kept and refreshed without asking again, and the seal is
-restarted; an older installer asks before replacing a newer build. `--version` prints the
+and `install-mac.sh` ask for the language (English or Thai; the Windows uninstaller then uses
+it too) and which AI assistants to hook (a box for each of the agents below; Claude Code and
+every assistant found on the computer start ticked, or on an update the ones already hooked).
+On uninstall they remove the hooks of every assistant and the whole data folder (placement,
+`status.txt`, state; `install-mac.sh --keep` keeps it), silent or not. Running a newer
+installer over an install updates it: the version found is shown, settings and the hooks
+already in place are kept and refreshed, and the seal is restarted; an older installer asks before replacing a newer build. `--version` prints the
 version. The exe
 carries the seal icon (`assets/icon.ico`, from `tools/make_icon.py`). Only the program's own
 hooks are added, replaced or removed: every other hook and setting stays, in its order.
 The file is rewritten as indented JSON after a `settings.json.bak-<time>` backup, and a
 removal that finds none of its hooks leaves the file alone.
+
+Other agents: `--install-hooks --agent <name>` (and `--remove-hooks --agent <name>`) does
+the same for `cursor` (`~/.cursor/hooks.json`), `copilot` (Copilot CLI, a file of its own,
+`~/.copilot/hooks/ai-mascot-hook.json`, or under `COPILOT_HOME`), `gemini`
+(`~/.gemini/settings.json`) and `codex` (OpenAI's Codex CLI, `~/.codex/hooks.json`; ChatGPT
+on the web has no hooks), `qwen` (`~/.qwen/settings.json`), `windsurf`
+(`~/.codeium/windsurf/hooks.json`) and `kiro` (`~/.kiro/hooks/ai-mascot-hook.json`, a file of its
+own). Several names may be given, separated by commas. `all` covers Claude Code and every
+other agent whose folder exists (on removal, every agent that has a file); with no `--agent`
+only Claude Code is touched. A removal that leaves a file empty deletes it. Each agent's events map to the same
+five states (Cursor, Windsurf and Kiro have no asking event, so they never show asking). Some agents need an
+answer on stdout, which `--set <state> --reply <kind>` prints: `allow` (Cursor's
+`preToolUse`, which blocks the tool on an empty answer), `continue` (Cursor's
+`beforeSubmitPrompt`), `empty` (`{}`, Codex's `Stop`). Codex asks you to review new hooks
+once with `/hooks`.
 
 ### macOS
 

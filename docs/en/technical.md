@@ -89,7 +89,7 @@ Where the cost comes from:
 | `state` | the hooks | every hook event |
 | `placement` | the seal | after you move or resize it, or turn the bubble on or off |
 | `status.txt` | the status editor | when you press Save |
-| `~/.claude/settings.json` | `--install-hooks` / `--remove-hooks` | only when you run them; the old file is saved as `settings.json.bak-<time>` first |
+| `~/.claude/settings.json`, and for the other agents their own hook files (`~/.cursor/hooks.json`, `~/.copilot/hooks/ai-mascot-hook.json`, `~/.gemini/settings.json`, `~/.codex/hooks.json`, `~/.qwen/settings.json`, `~/.codeium/windsurf/hooks.json`, `~/.kiro/hooks/ai-mascot-hook.json`) | `--install-hooks` / `--remove-hooks` (`--agent`) | only when you run them; an old file is saved as `<name>.bak-<time>` first |
 
 The data folder is `%LOCALAPPDATA%\ai-mascot-hook` on Windows and
 `~/Library/Application Support/ai-mascot-hook` on macOS.

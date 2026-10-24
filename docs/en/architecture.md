@@ -50,7 +50,7 @@ flowchart TB
         bubble["bubble.rs<br/>bubble layout, drawing, animation"]
         menu["menu.rs<br/>icon menu layout, drawing, animation"]
         editor["editor.rs<br/>status editor layout, painting, clicks"]
-        hooks["hooks.rs<br/>~/.claude/settings.json"]
+        hooks["hooks.rs<br/>hook files of each agent"]
         anim["anim.rs<br/>easing"]
         gfx["gfx/mod.rs<br/>Canvas, shapes, Strip"]
     end
@@ -114,7 +114,7 @@ flowchart TB
 flowchart TD
     start(["ai-mascot-hook"]) --> args{"first argument"}
     args -- "--set state" --> write["status::write_state"] --> exit0(["exit"])
-    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>back up, drop old ai-mascot-hook hooks,<br/>add 8 hooks"] --> exit1(["exit"])
+    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>back up, drop old ai-mascot-hook hooks,<br/>add the hooks of each --agent"] --> exit1(["exit"])
     args -- "none" --> plat{"platform"}
     plat -- Windows --> wrun["win::run"]
     plat -- macOS --> mrun["mac::run"]
@@ -200,7 +200,7 @@ comes from `anim.rs`.
 
 ```mermaid
 flowchart LR
-    hooks2["hooks::run"] -- "edits" --> settings[("~/.claude/settings.json")]
+    hooks2["hooks::run"] -- "edits" --> settings[("hook files<br/>~/.claude/settings.json, ...")]
     setcmd["ai-mascot-hook --set"] -- "writes" --> state[("state")]
     state -- "read" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y height show_status")]
@@ -216,7 +216,7 @@ All of these files except `settings.json` live in the data folder (`store::data_
 
 | To change | Look in |
 |---|---|
-| Which event sets which state | `hooks.rs` (`PLAN`), `tools/install-hooks.ps1` |
+| Which event sets which state | `hooks.rs` (the `Plan` of each agent), `tools/install-hooks.ps1` |
 | A state's animation, speed or size | `seal.rs` (`Clip`, `clip_for`) |
 | The bubble's look or motion | `bubble.rs` |
 | Default words and colors | `status.rs` (`STATES`, `DEFAULT_COLOR`) |

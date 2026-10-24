@@ -83,7 +83,7 @@ hook แต่ละตัวมี timeout 10 วินาที ต่อใ�
 | `state` | hook | ทุกเหตุการณ์ของ hook |
 | `placement` | แมวน้ำ | หลังย้าย ปรับขนาด หรือเปิดปิดกล่องข้อความ |
 | `status.txt` | หน้าแก้ข้อความสถานะ | ตอนกด Save |
-| `~/.claude/settings.json` | `--install-hooks` / `--remove-hooks` | เฉพาะตอนสั่งรัน โดยสำรองไฟล์เดิมเป็น `settings.json.bak-<เวลา>` ก่อน |
+| `~/.claude/settings.json` และไฟล์ hook ของ agent อื่น (`~/.cursor/hooks.json`, `~/.copilot/hooks/ai-mascot-hook.json`, `~/.gemini/settings.json`, `~/.codex/hooks.json`, `~/.qwen/settings.json`, `~/.codeium/windsurf/hooks.json`, `~/.kiro/hooks/ai-mascot-hook.json`) | `--install-hooks` / `--remove-hooks` (`--agent`) | เฉพาะตอนสั่งรัน โดยสำรองไฟล์เดิมเป็น `<ชื่อไฟล์>.bak-<เวลา>` ก่อน |
 
 โฟลเดอร์ข้อมูลอยู่ที่ `%LOCALAPPDATA%\ai-mascot-hook` บน Windows และ
 `~/Library/Application Support/ai-mascot-hook` บน macOS

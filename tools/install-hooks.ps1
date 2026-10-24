@@ -30,6 +30,10 @@ and to PowerShell, whichever shell Claude Code picks.
 .PARAMETER Exe
 The ai-mascot-hook.exe the hooks run. Defaults to target\release\ai-mascot-hook.exe in this repo.
 
+.PARAMETER Agent
+Which agents to hook: claude (the default), cursor, copilot, gemini, codex, qwen, windsurf,
+several separated by commas, or all (see src/hooks.rs for the files each one uses).
+
 .PARAMETER Remove
 Take ai-mascot-hook's hooks out instead of adding them.
 
@@ -38,11 +42,10 @@ powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1
 #>
 param(
     [string]$Exe = (Join-Path $PSScriptRoot '..\target\release\ai-mascot-hook.exe'),
+    [string]$Agent = 'claude',
     [switch]$Remove
 )
 $ErrorActionPreference = 'Stop'
-
-$settingsPath = Join-Path $env:USERPROFILE '.claude\settings.json'
 
 if (-not (Test-Path $Exe)) {
     throw "Not found: $Exe`nBuild it first (cargo build --release) or pass -Exe <path to ai-mascot-hook.exe>."
@@ -62,7 +65,7 @@ if (-not $Remove -and $Exe -match ' ') {
 $out = [IO.Path]::GetTempFileName()
 $err = [IO.Path]::GetTempFileName()
 try {
-    $flags = if ($Remove) { @('--remove-hooks') } else { @('--install-hooks', '--exe', $hookExe) }
+    $flags = if ($Remove) { @('--remove-hooks', '--agent', $Agent) } else { @('--install-hooks', '--exe', $hookExe, '--agent', $Agent) }
     $run = Start-Process -FilePath $Exe -ArgumentList $flags -Wait -PassThru -NoNewWindow `
         -RedirectStandardOutput $out -RedirectStandardError $err
     $said = (@(Get-Content $out) + @(Get-Content $err)) -join "`n"
@@ -79,5 +82,5 @@ if (-not $Remove) {
     Start-Process -FilePath $Exe -ArgumentList '--set', 'idle' -Wait -NoNewWindow
     $state = Join-Path $env:LOCALAPPDATA 'ai-mascot-hook\state'
     Write-Host "Test write: $state = '$([IO.File]::ReadAllText($state))'"
-    Write-Host 'Restart Claude Code (or open /hooks) so it loads the new hooks.'
+    Write-Host 'Restart the agent (for Claude Code, or open /hooks) so it loads the new hooks.'
 }

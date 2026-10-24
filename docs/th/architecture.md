@@ -47,7 +47,7 @@ flowchart TB
         bubble["bubble.rs<br/>จัดวาง วาด และ animate กล่องข้อความ"]
         menu["menu.rs<br/>จัดวาง วาด และ animate เมนูปุ่มกลม"]
         editor["editor.rs<br/>จัดวาง วาด และรับคลิกหน้าตั้งค่า"]
-        hooks["hooks.rs<br/>~/.claude/settings.json"]
+        hooks["hooks.rs<br/>ไฟล์ hook ของแต่ละ agent"]
         anim["anim.rs<br/>เส้นโค้งความเร็ว"]
         gfx["gfx/mod.rs<br/>Canvas รูปทรง Strip"]
     end
@@ -109,7 +109,7 @@ flowchart TB
 flowchart TD
     start(["ai-mascot-hook"]) --> args{"argument แรก"}
     args -- "--set สถานะ" --> write["status::write_state"] --> exit0(["จบ"])
-    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>สำรองไฟล์ ลบ hook เก่าของ ai-mascot-hook<br/>เพิ่ม hook 8 ตัว"] --> exit1(["จบ"])
+    args -- "--install-hooks / --remove-hooks" --> hk["hooks::run<br/>สำรองไฟล์ ลบ hook เก่าของ ai-mascot-hook<br/>เพิ่ม hook ของแต่ละ --agent"] --> exit1(["จบ"])
     args -- "ไม่มี" --> plat{"ระบบ"}
     plat -- Windows --> wrun["win::run"]
     plat -- macOS --> mrun["mac::run"]
@@ -199,7 +199,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    hooks2["hooks::run"] -- "แก้ไข" --> settings[("~/.claude/settings.json")]
+    hooks2["hooks::run"] -- "แก้ไข" --> settings[("ไฟล์ hook<br/>~/.claude/settings.json, ...")]
     setcmd["ai-mascot-hook --set"] -- "เขียน" --> state[("state")]
     state -- "อ่าน" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y ความสูง show_status")]
@@ -215,7 +215,7 @@ flowchart LR
 
 | อยากแก้ | ดูที่ |
 |---|---|
-| เหตุการณ์ไหนตั้งสถานะอะไร | `hooks.rs` (`PLAN`), `tools/install-hooks.ps1` |
+| เหตุการณ์ไหนตั้งสถานะอะไร | `hooks.rs` (`Plan` ของแต่ละ agent), `tools/install-hooks.ps1` |
 | ท่า ความเร็ว หรือขนาดของแต่ละสถานะ | `seal.rs` (`Clip`, `clip_for`) |
 | หน้าตาหรือการเคลื่อนไหวของกล่องข้อความ | `bubble.rs` |
 | ข้อความและสีเริ่มต้น | `status.rs` (`STATES`, `DEFAULT_COLOR`) |

@@ -1,4 +1,5 @@
-//! ai-mascot-hook: a small seal that floats on the desktop and acts out what Claude Code is doing.
+//! ai-mascot-hook: a small seal that floats on the desktop and acts out what Claude Code (or
+//! Cursor, Copilot CLI, Gemini CLI, Codex) is doing.
 //!
 //! Claude Code hooks run `ai-mascot-hook --set <state>` (loading, working, asking, completed,
 //! idle), which writes the word to a state file; the running seal polls that file and plays
@@ -24,6 +25,11 @@ mod mac;
 #[cfg(windows)]
 mod win;
 
+/// The value after `name` on the command line, if both are there.
+fn flag<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
+    args.iter().position(|a| a == name).and_then(|i| args.get(i + 1)).map(String::as_str)
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
@@ -31,18 +37,26 @@ fn main() {
         // it up on its next poll
         Some("--set") => {
             let word = args.get(1).map(String::as_str).unwrap_or("");
-            std::process::exit(if status::write_state(&store::data_dir(), word).is_ok() { 0 } else { 2 });
+            let ok = status::write_state(&store::data_dir(), word).is_ok();
+            // Cursor and Codex read the hook's answer from stdout and fail or block without one
+            let reply = match flag(&args, "--reply") {
+                Some("allow") => r#"{"permission":"allow"}"#,
+                Some("continue") => r#"{"continue":true}"#,
+                Some("empty") => "{}",
+                _ => "",
+            };
+            if !reply.is_empty() {
+                println!("{reply}");
+            }
+            std::process::exit(if ok { 0 } else { 2 });
         }
         // for the Mac installer, which tells an update from a fresh install by this
         Some("--version") => {
             println!("{}", env!("CARGO_PKG_VERSION"));
             return;
         }
-        Some("--install-hooks") => {
-            let exe = args.iter().position(|a| a == "--exe").and_then(|i| args.get(i + 1));
-            std::process::exit(hooks::run(true, exe.map(String::as_str)))
-        }
-        Some("--remove-hooks") => std::process::exit(hooks::run(false, None)),
+        Some("--install-hooks") => std::process::exit(hooks::run(true, flag(&args, "--exe"), flag(&args, "--agent"))),
+        Some("--remove-hooks") => std::process::exit(hooks::run(false, None, flag(&args, "--agent"))),
         _ => {}
     }
     #[cfg(windows)]

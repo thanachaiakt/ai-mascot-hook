@@ -21,7 +21,7 @@ Shared by both platforms:
   Platforms only show its canvases.
 - `src/menu.rs`, `src/editor.rs`: the icon menu's and the status editor's layout,
   drawing and hit-testing, shared the same way. The editor's text boxes are native.
-- `src/hooks.rs`: edits `~/.claude/settings.json`.
+- `src/hooks.rs`: edits the hook files of Claude Code, Cursor, Copilot CLI, Gemini CLI, Codex, Qwen Code, Windsurf and Kiro (`--agent`). Each agent's events are a `Plan`; add an agent as an `Agent` variant, its plan and its file, plus its box in `installer/windows.iss` and `Thai.isl`'s file list.
 - `src/anim.rs`: easing curves.
 - `src/gfx/mod.rs`: pixel `Canvas`, SDF shapes, `Strip`.
 
@@ -34,7 +34,7 @@ Per platform:
   `editor.rs` (editor panel, NSTextFields, NSColorPanel).
 - `assets/`: frame strips. `build.rs` cuts each into one PNG per frame, embedded with
   `include_bytes!`, so only the frame on screen is unpacked. `tools/`: art and hook scripts.
-- `installer/windows.iss` (Inno Setup) and `tools/install-mac.sh` are the release installers.
+- `installer/windows.iss` (Inno Setup, English and `installer/Thai.isl`) and `tools/install-mac.sh` are the release installers; both let the user pick the language and the AI agents to hook, and their uninstall removes every agent's hooks and the data folder.
   `.github/workflows/release.yml` builds them on a `v*` tag; the tag must match `Cargo.toml`'s version.
 
 ## Commands

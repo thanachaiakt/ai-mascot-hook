@@ -30,54 +30,31 @@ WizardStyle=modern
 CloseApplications=no
 VersionInfoVersion={#AppVersion}
 UninstallDisplayIcon={app}\ai-mascot-hook.exe
+; The first screen asks English or Thai, and the uninstaller speaks the language chosen then
+ShowLanguageDialog=yes
 
-; Inno Setup ships no Thai wizard text, so the texts a user reads are overridden here. Anything
-; not listed (rare error dialogs) stays English.
+[Languages]
+Name: "en"; MessagesFile: "compiler:Default.isl"
+Name: "th"; MessagesFile: "Thai.isl"
+
+; English wording for the texts this program changes; the Thai ones are in Thai.isl
 [Messages]
-SetupAppTitle=ติดตั้ง
-SetupWindowTitle=ติดตั้ง - %1
-UninstallAppTitle=ถอนการติดตั้ง
-UninstallAppFullTitle=ถอนการติดตั้ง %1
-ButtonBack=< &ย้อนกลับ
-ButtonNext=&ถัดไป >
-ButtonInstall=&ติดตั้ง
-ButtonOK=ตกลง
-ButtonCancel=ยกเลิก
-ButtonYes=&ใช่
-ButtonNo=&ไม่
-ButtonFinish=&เสร็จสิ้น
-ButtonBrowse=&เลือก...
-ExitSetupTitle=ออกจากการติดตั้ง
-ExitSetupMessage=การติดตั้งยังไม่เสร็จ ถ้าออกตอนนี้ โปรแกรมจะไม่ถูกติดตั้ง%n%nต้องการออกหรือไม่?
-WelcomeLabel1=ยินดีต้อนรับสู่การติดตั้ง [name]
-WelcomeLabel2=[name/ver] คือแมวน้ำตัวเล็กบนเดสก์ท็อป ที่แสดงให้เห็นว่า Claude Code กำลังทำอะไรอยู่: คิด ทำงาน รอคุณอนุญาต หรือเสร็จแล้ว%n%nแนะนำให้ปิดโปรแกรมอื่นก่อนดำเนินการต่อ
-ReadyLabel1=พร้อมติดตั้งแล้ว
-ReadyLabel2a=กด "ติดตั้ง" เพื่อเริ่มติดตั้ง หรือ "ย้อนกลับ" ถ้าต้องการแก้ไขตัวเลือก
-ReadyLabel2b=กด "ติดตั้ง" เพื่อเริ่มติดตั้ง
-InstallingLabel=กำลังติดตั้ง [name] กรุณารอสักครู่...
-FinishedHeadingLabel=ติดตั้ง [name] เสร็จแล้ว
-FinishedLabelNoIcons=ติดตั้ง [name] ในเครื่องของคุณเรียบร้อยแล้ว
-FinishedLabel=ติดตั้ง [name] ในเครื่องของคุณเรียบร้อยแล้ว เปิดโปรแกรมได้จากทางลัดในเมนู Start%n%nถ้าเพิ่มฮุกให้ Claude Code ไว้ ให้เปิด Claude Code ใหม่ด้วย เพื่อให้โหลดฮุกนั้น
-ConfirmUninstall=ต้องการถอน %1 และส่วนประกอบทั้งหมดออกจากเครื่องหรือไม่?
-UninstallStatusLabel=กำลังถอน %1 ออกจากเครื่อง กรุณารอสักครู่...
-UninstalledAll=ถอน %1 ออกจากเครื่องเรียบร้อยแล้ว
-UninstalledMost=ถอน %1 เรียบร้อยแล้ว%n%nบางรายการลบไม่ได้ ลบเองได้ภายหลัง
-UninstallOpenError=เปิดไฟล์ %1 ไม่ได้ จึงถอนการติดตั้งต่อไม่ได้
+en.WelcomeLabel2=[name/ver] is a small seal on your desktop that shows what your AI coding assistant (Claude Code, Cursor, Copilot, Gemini, Codex and others) is doing: thinking, working, waiting for your OK, or done.%n%nIt is recommended that you close all other applications before continuing.
+en.FinishedLabel=Setup has finished installing [name] on your computer. Start it from the shortcut in the Start menu.%n%nIf you added hooks for an AI assistant, restart it so it loads them.
+en.ConfirmUninstall=Are you sure you want to completely remove %1 and all of its components?%n%nThe hooks it added to your AI assistants and all of its settings are removed too.
 
 [CustomMessages]
-TaskStartup=เปิดแมวน้ำให้อัตโนมัติเมื่อเข้าสู่ระบบ Windows
-TaskStartupGroup=ตัวเลือกเพิ่มเติม:
-RunHooks=กำลังเพิ่มฮุกให้ Claude Code...
-RunStart=เปิดแมวน้ำเดี๋ยวนี้
-UpdateTitle=อัปเดต ai-mascot-hook
-UpdateWelcome=พบ ai-mascot-hook รุ่น %1 ในเครื่องแล้ว ตัวติดตั้งนี้จะอัปเดตเป็นรุ่น %2%n%nการตั้งค่า ตำแหน่งแมวน้ำ และฮุกของ Claude Code จะอยู่ครบ แมวน้ำที่เปิดอยู่จะถูกปิดแล้วเปิดใหม่ให้เอง%n%nกด "ถัดไป" เพื่ออัปเดต
-SameVersion=ติดตั้ง ai-mascot-hook รุ่น %1 อยู่แล้ว ตัวติดตั้งนี้จะติดตั้งทับ (ซ่อมแซม) ให้%n%nการตั้งค่าของคุณจะอยู่ครบ
-OlderVersion=ในเครื่องมี ai-mascot-hook รุ่น %1 ซึ่งใหม่กว่ารุ่นของตัวติดตั้งนี้ (%2)%n%nต้องการติดตั้งรุ่นเก่ากว่าทับหรือไม่?
-HooksTitle=เชื่อมต่อกับ Claude Code
-HooksSubtitle=ai-mascot-hook ขออนุญาตแก้ไขไฟล์ตั้งค่าของ Claude Code
-HooksAllow=อนุญาตให้เพิ่มฮุกลงใน settings.json
-PurgeAsk=ต้องการลบการตั้งค่าของ ai-mascot-hook ออกด้วยหรือไม่?%n%nจะลบ: ตำแหน่งที่วางแมวน้ำ ขนาด ข้อความและสีของฟองสถานะ (status.txt) และไฟล์สถานะ ในโฟลเดอร์%n%1%n%nถ้าตอบ "ไม่" การตั้งค่าจะอยู่ต่อ และกลับมาใช้ได้เมื่อติดตั้งใหม่
-HooksBody=Claude Code จะรันคำสั่งเล็ก ๆ ที่เรียกว่า "ฮุก" เมื่อมีเหตุการณ์เกิดขึ้น เช่น คุณส่งข้อความ เครื่องมือเริ่มทำงาน Claude ขออนุญาต หรือจบหนึ่งรอบ เพื่อให้แมวน้ำขยับตาม Claude ตัวติดตั้งจะเพิ่มฮุกหนึ่งตัวต่อหนึ่งเหตุการณ์ ลงในไฟล์:%n    %1\.claude\settings.json%n%nแต่ละฮุกรันคำสั่ง "ai-mascot-hook.exe --set <สถานะ>" ซึ่งเขียนคำเดียวลงไฟล์ในโฟลเดอร์ %%LOCALAPPDATA%%i-mascot-hook แล้วจบทันที ไม่มีการส่งข้อมูลผ่านอินเทอร์เน็ตเลย%n%n- ไฟล์เดิมจะถูกสำรองไว้ก่อน เป็น settings.json.bak-<เวลา>%n- ฮุกและการตั้งค่าอื่นของคุณอยู่ครบ ฮุก ai-mascot-hook รุ่นเก่าจะถูกแทนที่%n- ตอนถอนการติดตั้ง ฮุกเหล่านี้จะถูกเอาออกให้%n- เปิด Claude Code ใหม่หลังติดตั้ง เพื่อให้โหลดฮุก%n%nถ้าไม่อนุญาต แมวน้ำยังทำงานได้ แต่จะไม่ขยับตาม Claude ถ้าอยากเพิ่มฮุกทีหลัง ให้รันตัวติดตั้งนี้อีกครั้ง
+en.TaskStartup=Start the seal automatically when I sign in to Windows
+en.TaskStartupGroup=Additional options:
+en.RunHooks=Adding hooks for the selected AI assistants...
+en.RunStart=Start the seal now
+en.UpdateTitle=Update ai-mascot-hook
+en.UpdateWelcome=Version %1 of ai-mascot-hook is installed. This setup updates it to version %2.%n%nYour settings, the seal's position and the existing hooks are kept. A running seal is closed and started again for you.%n%nClick Next to update.
+en.SameVersion=Version %1 of ai-mascot-hook is already installed. This setup installs over it (a repair).%n%nYour settings are kept.
+en.OlderVersion=Version %1 of ai-mascot-hook is installed, which is newer than this setup (%2).%n%nInstall the older version over it?
+en.HooksTitle=Connect to your AI assistants
+en.HooksSubtitle=Choose the ones the seal should follow
+en.HooksBody=These assistants run small commands called "hooks" when something happens, such as you sending a message, a tool starting, or a turn ending. Tick the ones you use and setup adds hooks to that assistant's settings file (under %1):%n    Claude Code: .claude\settings.json%n    Cursor: .cursor\hooks.json%n    GitHub Copilot CLI: .copilot\hooks\ai-mascot-hook.json%n    Gemini CLI: .gemini\settings.json%n    OpenAI Codex: .codex\hooks.json%n    Qwen Code: .qwen\settings.json%n    Windsurf: .codeium\windsurf\hooks.json%n    Kiro: .kiro\hooks\ai-mascot-hook.json%n%nEach hook runs "ai-mascot-hook.exe --set <state>", which writes one word to a file in %%LOCALAPPDATA%%\ai-mascot-hook and exits. Nothing is sent over the internet.%n%n- An existing file is backed up first, as <name>.bak-<time>%n- Your other hooks and settings are kept; older ai-mascot-hook hooks are replaced%n- Uninstalling removes these hooks from every assistant%n- Restart the assistant after setup so it loads the hooks (Codex asks you to review new hooks once with /hooks)%n%nIf you tick none, the seal still runs but does not follow any assistant. To add hooks later, run this setup again.
 
 [Tasks]
 Name: "startup"; Description: "{cm:TaskStartup}"; GroupDescription: "{cm:TaskStartupGroup}"
@@ -93,32 +70,97 @@ Name: "{group}\ai-mascot-hook"; Filename: "{app}\ai-mascot-hook.exe"
 Name: "{userstartup}\ai-mascot-hook"; Filename: "{app}\ai-mascot-hook.exe"; Tasks: startup
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-hooks.ps1"" -Exe ""{app}\ai-mascot-hook.exe"""; StatusMsg: "{cm:RunHooks}"; Flags: runhidden waituntilterminated; Check: HooksAllowed
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-hooks.ps1"" -Exe ""{app}\ai-mascot-hook.exe"" -Agent ""{code:HookAgents}"""; StatusMsg: "{cm:RunHooks}"; Flags: runhidden waituntilterminated; Check: HooksWanted
 ; after an update the seal comes back by itself, even in a silent run, since the update closed it
 Filename: "{app}\ai-mascot-hook.exe"; Flags: nowait runasoriginaluser; Check: IsUpgrade
 Filename: "{app}\ai-mascot-hook.exe"; Description: "{cm:RunStart}"; Flags: nowait postinstall skipifsilent; Check: not IsUpgrade
 
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM ai-mascot-hook.exe"; Flags: runhidden waituntilterminated; RunOnceId: "StopSeal"
-Filename: "{app}\ai-mascot-hook.exe"; Parameters: "--remove-hooks"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveHooks"
+; every assistant that has our hooks, not only the ones chosen at install time
+Filename: "{app}\ai-mascot-hook.exe"; Parameters: "--remove-hooks --agent all"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveHooks"
 
 [Code]
 const
   UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{6B0C7E2A-3F4D-4C1B-9A8E-5D2F1E7C9A41}_is1';
+  AgentCount = 8;
 
 var
   HooksPage: TInputOptionWizardPage;
-  PurgeSettings: Boolean;
   OldVersion: String;
   // -1 an older build is installed (an update), 0 the same, 1 a newer one, 2 nothing installed
   Compared: Integer;
 
-function HooksInstalled: Boolean;
+// The assistants, in the order of the page's boxes. The id is what --agent takes.
+function AgentId(I: Integer): String;
+begin
+  case I of
+    0: Result := 'claude';
+    1: Result := 'cursor';
+    2: Result := 'copilot';
+    3: Result := 'gemini';
+    4: Result := 'codex';
+    5: Result := 'qwen';
+    6: Result := 'windsurf';
+  else
+    Result := 'kiro';
+  end;
+end;
+
+function AgentTitle(I: Integer): String;
+begin
+  case I of
+    0: Result := 'Claude Code';
+    1: Result := 'Cursor';
+    2: Result := 'GitHub Copilot CLI';
+    3: Result := 'Gemini CLI';
+    4: Result := 'OpenAI Codex';
+    5: Result := 'Qwen Code';
+    6: Result := 'Windsurf';
+  else
+    Result := 'Kiro';
+  end;
+end;
+
+// The assistant's own folder in the user's home
+function AgentDir(I: Integer): String;
+var
+  Home: String;
+begin
+  Home := ExpandConstant('{%USERPROFILE}');
+  case I of
+    0: Result := Home + '\.claude';
+    1: Result := Home + '\.cursor';
+    2:
+      begin
+        Result := GetEnv('COPILOT_HOME');
+        if Result = '' then Result := Home + '\.copilot';
+      end;
+    3: Result := Home + '\.gemini';
+    4: Result := Home + '\.codex';
+    5: Result := Home + '\.qwen';
+    6: Result := Home + '\.codeium\windsurf';
+  else
+    Result := Home + '\.kiro';
+  end;
+end;
+
+// The file that holds our hooks for this assistant
+function AgentFile(I: Integer): String;
+begin
+  case I of
+    0, 3, 5: Result := AgentDir(I) + '\settings.json';
+    1, 4, 6: Result := AgentDir(I) + '\hooks.json';
+  else
+    Result := AgentDir(I) + '\hooks\ai-mascot-hook.json';
+  end;
+end;
+
+function AgentHooked(I: Integer): Boolean;
 var
   Text: AnsiString;
 begin
-  Result := LoadStringFromFile(ExpandConstant('{%USERPROFILE}\.claude\settings.json'), Text)
-    and (Pos('ai-mascot-hook', String(Text)) > 0);
+  Result := LoadStringFromFile(AgentFile(I), Text) and (Pos('ai-mascot-hook', String(Text)) > 0);
 end;
 
 function IsUpgrade: Boolean;
@@ -138,9 +180,15 @@ begin
     Compared := 0;
 end;
 
-// Editing another program's settings needs the user's say-so, so this page spells out
-// exactly what changes in settings.json before asking
+// Editing other programs' settings needs the user's say-so, so this page spells out exactly
+// what changes before asking. The boxes start ticked for the assistants already hooked (an
+// update keeps what was agreed to), or on a first install for Claude Code and every assistant
+// found on this computer.
 procedure InitializeWizard;
+var
+  I: Integer;
+  Hooked: array[0..AgentCount - 1] of Boolean;
+  AnyHooked: Boolean;
 begin
   Compare;
   if Compared = -1 then
@@ -154,20 +202,39 @@ begin
     CustomMessage('HooksTitle'), CustomMessage('HooksSubtitle'),
     FmtMessage(CustomMessage('HooksBody'), [ExpandConstant('{%USERPROFILE}')]),
     False, False);
-  HooksPage.Add(CustomMessage('HooksAllow'));
-  HooksPage.Values[0] := True;
+  AnyHooked := False;
+  for I := 0 to AgentCount - 1 do
+  begin
+    Hooked[I] := AgentHooked(I);
+    if Hooked[I] then AnyHooked := True;
+  end;
+  for I := 0 to AgentCount - 1 do
+  begin
+    HooksPage.Add(AgentTitle(I));
+    if AnyHooked then
+      HooksPage.Values[I] := Hooked[I]
+    else
+      HooksPage.Values[I] := (I = 0) or DirExists(AgentDir(I));
+  end;
 end;
 
-// On an update whose hooks are already in place the question was answered once: refresh them
-// without asking again. Anyone who declined (or has none) is asked as on a first install.
-function ShouldSkipPage(PageID: Integer): Boolean;
+// The ticked assistants, as --agent takes them
+function HookAgents(Param: String): String;
+var
+  I: Integer;
 begin
-  Result := (PageID = HooksPage.ID) and IsUpgrade and HooksInstalled;
+  Result := '';
+  for I := 0 to AgentCount - 1 do
+    if HooksPage.Values[I] then
+    begin
+      if Result <> '' then Result := Result + ',';
+      Result := Result + AgentId(I);
+    end;
 end;
 
-function HooksAllowed: Boolean;
+function HooksWanted: Boolean;
 begin
-  Result := (IsUpgrade and HooksInstalled) or HooksPage.Values[0];
+  Result := HookAgents('') <> '';
 end;
 
 // Installing an older build over a newer one is allowed, but only on purpose
@@ -188,16 +255,6 @@ begin
   Result := '';
 end;
 
-// The seal's own settings (placement, status.txt, state) live outside the install folder, so
-// uninstalling only clears them if the user says so. Silent uninstalls keep them.
-function InitializeUninstall: Boolean;
-begin
-  Result := True;
-  PurgeSettings := (not UninstallSilent) and
-    (MsgBox(FmtMessage(CustomMessage('PurgeAsk'), [ExpandConstant('{localappdata}i-mascot-hook')]),
-      mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES);
-end;
-
 // Hosts that redirect %LOCALAPPDATA% writes (the Claude desktop app, from the Store) keep
 // their own copy of the folder under Packages\<app>\LocalCache\Local
 procedure PurgeStoreCopies;
@@ -205,22 +262,24 @@ var
   Packages: String;
   Found: TFindRec;
 begin
-  Packages := ExpandConstant('{localappdata}\Packages');
+  Packages := ExpandConstant('{localappdata}\Packages\');
   if FindFirst(Packages + '*', Found) then
   try
     repeat
-      DelTree(Packages + Found.Name + '\LocalCache\Locali-mascot-hook', True, True, True);
+      DelTree(Packages + Found.Name + '\LocalCache\Local\ai-mascot-hook', True, True, True);
     until not FindNext(Found);
   finally
     FindClose(Found);
   end;
 end;
 
+// Uninstalling leaves nothing behind: the hooks come out in [UninstallRun], and the seal's own
+// settings (placement, status.txt, state), which live outside the install folder, go here.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  if (CurUninstallStep = usPostUninstall) and PurgeSettings then
+  if CurUninstallStep = usPostUninstall then
   begin
-    DelTree(ExpandConstant('{localappdata}i-mascot-hook'), True, True, True);
+    DelTree(ExpandConstant('{localappdata}\ai-mascot-hook'), True, True, True);
     PurgeStoreCopies;
   end;
 end;

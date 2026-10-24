@@ -82,14 +82,18 @@ Easiest way. The installer is for your user only (no admin prompt) and installs 
 1. **Download.** Open the [latest release](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
    page, scroll to **Assets** and download `ai-mascot-hook-<version>-setup.exe`.
 2. **Run it.** Double-click the file.
-3. **Connect to Claude Code.** Before it touches Claude Code, the installer shows a page
-   that explains what it will add to `~\.claude\settings.json` and asks for permission.
-   Untick the box to skip the hooks.
+   The first screen asks for the language, English or Thai; the installer and uninstaller
+   then speak it.
+3. **Choose your AI assistants.** Before it touches any settings, the installer shows a page
+   that explains what it will add and to which file, with a box for each of Claude Code,
+   Cursor, GitHub Copilot CLI, Gemini CLI, OpenAI Codex, Qwen Code, Windsurf and Kiro.
+   Claude Code and any assistant found on this computer start ticked. Untick all to skip hooks.
 4. **Start at sign-in (optional).** Tick the option in the installer.
-5. **Restart Claude Code.** Send Claude a message: the seal should start clapping.
+5. **Restart the assistant.** Send it a message: the seal should start clapping.
 
-To remove it, use **Settings > Apps**; that also removes the hooks, and asks whether to delete
-the seal's settings (`%LOCALAPPDATA%\ai-mascot-hook`) too. The installer's own pages are in Thai.
+To remove it, use **Settings > Apps**. That removes the hooks from every assistant (not only
+the ones you ticked) and deletes the seal's settings (`%LOCALAPPDATA%\ai-mascot-hook`) too, so
+nothing is left behind except the `.bak-<time>` copies of the files it edited.
 
 To update, run the newer `setup.exe` over the old install (or `install.sh` again on a Mac): it
 says which version it is replacing, keeps your settings and hooks, and restarts the seal.
@@ -121,6 +125,13 @@ Assets also has a plain `.zip` with only the exe, for the steps below.
    does the same.)
 4. **Restart Claude Code.** A session that was open before the install does not run the
    new hooks. Send Claude a message: the seal should start clapping.
+
+   **Other agents.** Add `--agent` with `cursor`, `copilot` (Copilot CLI), `gemini`, `codex`
+   (OpenAI's Codex CLI; ChatGPT on the web has no hooks), `qwen`, `windsurf` or `kiro` to
+   `--install-hooks` to hook that agent instead. Several go in one list (`--agent claude,kiro`),
+   and `all` means Claude Code plus every agent found on this computer. `--remove-hooks --agent
+   <name>` takes them out (`all` removes every agent's). Codex asks you to review the new hooks
+   once with `/hooks`. Cursor, Windsurf and Kiro have no event for asking, so they never show it.
 5. **Start with Windows (optional).** Press `Win + R`, type `shell:startup`, press Enter,
    and put a shortcut to `ai-mascot-hook.exe` in that folder.
 
@@ -145,13 +156,14 @@ Easiest way. One binary works on both chip types.
    ~/Downloads/ai-mascot-hook-*-macos/install.sh
    ```
 
-   The script copies the binary to `~/bin`, explains what it will add to
-   `~/.claude/settings.json` and asks before adding the hooks, sets the seal to start at
-   login, and starts it.
-3. **Restart Claude Code.** Send Claude a message: the seal should start clapping.
+   The script asks for the language (English or Thai), copies the binary to `~/bin`, explains
+   what it will add and to which files, asks which AI assistants to hook, sets the seal to
+   start at login, and starts it. `--lang en|th`, `--agents claude,cursor` (or `all`, `none`)
+   and `--yes` answer those questions up front.
+3. **Restart the assistant.** Send it a message: the seal should start clapping.
 
-`install.sh --uninstall` undoes it and asks whether to delete the seal's settings too
-(`--purge` deletes them without asking, `--keep` keeps them). The script's prompts are in Thai.
+`install.sh --uninstall` undoes everything: the hooks of every assistant, the login item, the
+binary and the seal's settings (`--keep` keeps the settings).
 
 ### macOS by hand
 
@@ -258,9 +270,9 @@ The hooks themselves live in Claude Code's `~/.claude/settings.json`.
 ## Uninstall
 
 1. Quit the seal: click it, then the cross (**Close**).
-2. Remove the hooks (backs up `settings.json` first):
-   - Windows: `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --remove-hooks`
-   - macOS: `~/bin/ai-mascot-hook --remove-hooks`
+2. Remove the hooks of every assistant (backs up each file first):
+   - Windows: `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --remove-hooks --agent all`
+   - macOS: `~/bin/ai-mascot-hook --remove-hooks --agent all`
 3. Delete what is left:
    - Windows: the `shell:startup` shortcut (if any), the exe, and `%LOCALAPPDATA%\ai-mascot-hook`
    - macOS: `launchctl unload ~/Library/LaunchAgents/com.ai-mascot-hook.plist` and delete that file

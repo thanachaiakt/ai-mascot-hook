@@ -83,14 +83,17 @@ Claude Code ไม่บังคับ (ถ้าไม่มี แมวน�
 1. **ดาวน์โหลด** เปิดหน้า [release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
    เลื่อนลงไปที่ **Assets** แล้วโหลด `ai-mascot-hook-<version>-setup.exe`
 2. **รันไฟล์** ดับเบิลคลิกไฟล์ที่โหลดมา
-3. **เชื่อมกับ Claude Code** ก่อนจะแตะ Claude Code ตัวติดตั้งจะมีหน้าอธิบายว่าจะเพิ่มอะไรลงใน
-   `~\.claude\settings.json` และขออนุญาตก่อน ถ้าไม่ต้องการ hook ให้เอาเครื่องหมายถูกออก
+   หน้าแรกให้เลือกภาษา อังกฤษหรือไทย แล้วตัวติดตั้งและตัวถอนการติดตั้งจะใช้ภาษานั้น
+3. **เลือก AI ที่ใช้** ก่อนจะแตะไฟล์ตั้งค่าใดๆ ตัวติดตั้งจะมีหน้าอธิบายว่าจะเพิ่มอะไรลงไฟล์ไหน
+   พร้อมช่องให้ติ๊กของ Claude Code, Cursor, GitHub Copilot CLI, Gemini CLI, OpenAI Codex,
+   Qwen Code, Windsurf และ Kiro โดย Claude Code และ AI ที่พบในเครื่องจะถูกติ๊กไว้ให้ก่อน
+   ถ้าไม่ต้องการ hook ให้เอาเครื่องหมายถูกออกให้หมด
 4. **ให้เปิดเองตอนเข้า Windows (ไม่บังคับ)** ติ๊กตัวเลือกในตัวติดตั้ง
-5. **เปิด Claude Code ใหม่** แล้วส่งข้อความหา Claude แมวน้ำจะเปลี่ยนเป็นท่าตบมือ
+5. **เปิด AI ที่เลือกใหม่** แล้วส่งข้อความหา AI แมวน้ำจะเปลี่ยนเป็นท่าตบมือ
 
-ถอนการติดตั้งได้จาก **Settings > Apps** ซึ่งจะลบ hook ออกให้ด้วย และถามว่าจะลบค่าที่ตั้งไว้
-(`%LOCALAPPDATA%\ai-mascot-hook`: ตำแหน่ง ขนาด ข้อความและสีของฟองสถานะ) ทิ้งด้วยหรือไม่
-หน้าต่างของตัวติดตั้งทั้งหมดเป็นภาษาไทย
+ถอนการติดตั้งได้จาก **Settings > Apps** ซึ่งจะลบ hook ออกจาก AI ทุกตัว (ไม่ใช่แค่ที่เคยติ๊ก)
+และลบค่าที่ตั้งไว้ (`%LOCALAPPDATA%\ai-mascot-hook`: ตำแหน่ง ขนาด ข้อความและสีของฟองสถานะ) ทิ้งให้
+ไม่เหลืออะไรไว้ นอกจากไฟล์สำรอง `.bak-<เวลา>` ของไฟล์ที่เคยแก้
 
 ถ้าจะอัปเดต ให้รัน `setup.exe` รุ่นใหม่ทับของเดิมได้เลย (บน Mac รัน `install.sh` ซ้ำ) ตัวติดตั้งจะบอกว่า
 อัปเดตจากรุ่นไหน เก็บการตั้งค่าและ hook ไว้ครบ แล้วเปิดแมวน้ำใหม่ให้
@@ -123,6 +126,12 @@ Claude Code ไม่บังคับ (ถ้าไม่มี แมวน�
 4. **เปิด Claude Code ใหม่** ปิดแล้วเปิดใหม่ (หรือเปิด session ใหม่ใน Claude desktop app)
    **session ที่เปิดไว้ก่อนติดตั้ง hook จะไม่เรียก hook** ลองส่งข้อความหา Claude
    แมวน้ำจะเปลี่ยนเป็นท่าตบมือ (loading) ทันที
+
+   **Agent อื่น** เติม `--agent cursor`, `copilot`, `gemini` หรือ `codex` (Codex CLI ของ OpenAI;
+   ChatGPT บนเว็บไม่มี hook) ต่อท้าย `--install-hooks` เพื่อติดตั้งให้ agent นั้นแทน
+   หรือ `--agent all` เพื่อติดตั้งให้ Claude Code และทุก agent ที่พบในเครื่อง
+   ถอนด้วย `--remove-hooks --agent <ชื่อ>` Codex จะให้ตรวจ hook ใหม่ครั้งหนึ่งผ่าน `/hooks`
+   ส่วน Cursor ไม่มีสถานะ asking เพราะไม่มี event ที่ตรงกัน
 5. **ให้เปิดเองตอนเข้า Windows (ไม่บังคับ)** กด `Win + R` พิมพ์ `shell:startup` แล้วกด Enter
    จากนั้นสร้าง shortcut ของ `ai-mascot-hook.exe` ไว้ในโฟลเดอร์ที่เปิดขึ้นมา
 
@@ -147,12 +156,13 @@ Claude desktop app ใช้ได้เช่นกัน แต่เป็น
    ~/Downloads/ai-mascot-hook-*-macos/install.sh
    ```
 
-   สคริปต์จะ copy โปรแกรมไปไว้ที่ `~/bin` อธิบายว่าจะเพิ่มอะไรลงใน `~/.claude/settings.json`
-   แล้วถามก่อนเพิ่ม hook ตั้งให้แมวน้ำเปิดเองตอน login และเปิดแมวน้ำให้เลย
-3. **เปิด Claude Code ใหม่** แล้วส่งข้อความหา Claude แมวน้ำจะเปลี่ยนเป็นท่าตบมือ
+   สคริปต์จะถามภาษา (อังกฤษหรือไทย) copy โปรแกรมไปไว้ที่ `~/bin` อธิบายว่าจะเพิ่มอะไรลงไฟล์ไหน
+   ถามว่าจะเพิ่ม hook ให้ AI ตัวไหน ตั้งให้แมวน้ำเปิดเองตอน login และเปิดแมวน้ำให้เลย
+   ตอบคำถามเหล่านี้ล่วงหน้าได้ด้วย `--lang en|th`, `--agents claude,cursor` (หรือ `all`, `none`) และ `--yes`
+3. **เปิด AI ที่เลือกใหม่** แล้วส่งข้อความหา AI แมวน้ำจะเปลี่ยนเป็นท่าตบมือ
 
-`install.sh --uninstall` ใช้ถอนการติดตั้ง และถามว่าจะลบค่าที่ตั้งไว้ด้วยหรือไม่
-(`--purge` ลบโดยไม่ถาม `--keep` เก็บไว้เสมอ) ข้อความของสคริปต์เป็นภาษาไทย
+`install.sh --uninstall` ถอนทุกอย่าง: hook ของ AI ทุกตัว รายการเปิดตอน login ตัวโปรแกรม
+และค่าที่ตั้งไว้ (`--keep` เก็บค่าที่ตั้งไว้)
 
 ### macOS ติดตั้งเอง
 
@@ -280,9 +290,9 @@ build เองครั้งเดียว ประมาณ 1 นาที
 ## ถอนการติดตั้ง
 
 1. ปิดแมวน้ำ: คลิกที่ตัวแมวน้ำ แล้วกดกากบาท (**Close**)
-2. ลบ hook ออกจาก Claude Code (สำรอง `settings.json` ให้ก่อน)
-   - Windows: `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --remove-hooks`
-   - macOS: `~/bin/ai-mascot-hook --remove-hooks`
+2. ลบ hook ออกจาก AI ทุกตัว (สำรองไฟล์ให้ก่อน)
+   - Windows: `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe --remove-hooks --agent all`
+   - macOS: `~/bin/ai-mascot-hook --remove-hooks --agent all`
 3. ลบส่วนที่เหลือ
    - Windows: shortcut ใน `shell:startup` (ถ้ามี) ไฟล์ exe และโฟลเดอร์ `%LOCALAPPDATA%\ai-mascot-hook`
    - macOS: `launchctl unload ~/Library/LaunchAgents/com.ai-mascot-hook.plist` แล้วลบไฟล์นั้น
