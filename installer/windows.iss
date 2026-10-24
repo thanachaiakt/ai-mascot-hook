@@ -30,8 +30,9 @@ WizardStyle=modern
 CloseApplications=no
 VersionInfoVersion={#AppVersion}
 UninstallDisplayIcon={app}\ai-mascot-hook.exe
-; The first screen asks English or Thai, and the uninstaller speaks the language chosen then
+; The first screen asks English or Thai, English first; the uninstaller speaks the one chosen
 ShowLanguageDialog=yes
+LanguageDetectionMethod=none
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
@@ -54,7 +55,10 @@ en.SameVersion=Version %1 of ai-mascot-hook is already installed. This setup ins
 en.OlderVersion=Version %1 of ai-mascot-hook is installed, which is newer than this setup (%2).%n%nInstall the older version over it?
 en.HooksTitle=Connect to your AI assistants
 en.HooksSubtitle=Choose the ones the seal should follow
-en.HooksBody=These assistants run small commands called "hooks" when something happens, such as you sending a message, a tool starting, or a turn ending. Tick the ones you use and setup adds hooks to that assistant's settings file (under %1):%n    Claude Code: .claude\settings.json%n    Cursor: .cursor\hooks.json%n    GitHub Copilot CLI: .copilot\hooks\ai-mascot-hook.json%n    Gemini CLI: .gemini\settings.json%n    OpenAI Codex: .codex\hooks.json%n    Qwen Code: .qwen\settings.json%n    Windsurf: .codeium\windsurf\hooks.json%n    Kiro: .kiro\hooks\ai-mascot-hook.json%n%nEach hook runs "ai-mascot-hook.exe --set <state>", which writes one word to a file in %%LOCALAPPDATA%%\ai-mascot-hook and exits. Nothing is sent over the internet.%n%n- An existing file is backed up first, as <name>.bak-<time>%n- Your other hooks and settings are kept; older ai-mascot-hook hooks are replaced%n- Uninstalling removes these hooks from every assistant%n- Restart the assistant after setup so it loads the hooks (Codex asks you to review new hooks once with /hooks)%n%nIf you tick none, the seal still runs but does not follow any assistant. To add hooks later, run this setup again.
+en.HooksBody=Tick the AI assistants you use. Setup adds hooks to each one's settings file:
+en.InfoTitle=About the hooks
+en.InfoSubtitle=What setup changes, and where
+en.InfoBody=AI assistants run small commands called "hooks" when something happens, such as you sending a message, a tool starting, or a turn ending. On the next page you tick the assistants to hook; setup then adds hooks to that assistant's settings file (under %1):%n    Claude Code: .claude\settings.json%n    Cursor: .cursor\hooks.json%n    GitHub Copilot CLI: .copilot\hooksi-mascot-hook.json%n    Gemini CLI: .gemini\settings.json%n    OpenAI Codex: .codex\hooks.json%n    Qwen Code: .qwen\settings.json%n    Windsurf: .codeium\windsurf\hooks.json%n    Kiro: .kiro\hooksi-mascot-hook.json%n%nEach hook runs "ai-mascot-hook.exe --set <state>", which writes one word to a file in %%LOCALAPPDATA%%i-mascot-hook and exits. Nothing is sent over the internet.%n%n- An existing file is backed up first, as <name>.bak-<time>%n- Your other hooks and settings are kept; older ai-mascot-hook hooks are replaced%n- Uninstalling removes these hooks from every assistant%n- Restart the assistant after setup so it loads the hooks (Codex asks you to review new hooks once with /hooks)%n%nIf you tick none, the seal still runs but does not follow any assistant. To add hooks later, run this setup again.
 
 [Tasks]
 Name: "startup"; Description: "{cm:TaskStartup}"; GroupDescription: "{cm:TaskStartupGroup}"
@@ -86,6 +90,7 @@ const
   AgentCount = 8;
 
 var
+  InfoPage: TOutputMsgMemoWizardPage;
   HooksPage: TInputOptionWizardPage;
   OldVersion: String;
   // -1 an older build is installed (an update), 0 the same, 1 a newer one, 2 nothing installed
@@ -156,6 +161,12 @@ begin
   end;
 end;
 
+// Where the assistant's hooks go, under the user's home, shown beside its box
+function AgentRel(I: Integer): String;
+begin
+  Result := Copy(AgentFile(I), Length(ExpandConstant('{%USERPROFILE}')) + 2, MaxInt);
+end;
+
 function AgentHooked(I: Integer): Boolean;
 var
   Text: AnsiString;
@@ -198,10 +209,12 @@ begin
   end
   else if Compared = 0 then
     WizardForm.WelcomeLabel2.Caption := FmtMessage(CustomMessage('SameVersion'), [OldVersion]);
-  HooksPage := CreateInputOptionPage(wpWelcome,
+  InfoPage := CreateOutputMsgMemoPage(wpWelcome,
+    CustomMessage('InfoTitle'), CustomMessage('InfoSubtitle'), '',
+    FmtMessage(CustomMessage('InfoBody'), [ExpandConstant('{%USERPROFILE}')]));
+  HooksPage := CreateInputOptionPage(InfoPage.ID,
     CustomMessage('HooksTitle'), CustomMessage('HooksSubtitle'),
-    FmtMessage(CustomMessage('HooksBody'), [ExpandConstant('{%USERPROFILE}')]),
-    False, False);
+    CustomMessage('HooksBody'), False, False);
   AnyHooked := False;
   for I := 0 to AgentCount - 1 do
   begin
@@ -210,7 +223,7 @@ begin
   end;
   for I := 0 to AgentCount - 1 do
   begin
-    HooksPage.Add(AgentTitle(I));
+    HooksPage.Add(AgentTitle(I) + '   (' + AgentRel(I) + ')');
     if AnyHooked then
       HooksPage.Values[I] := Hooked[I]
     else
