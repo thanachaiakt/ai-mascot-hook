@@ -63,7 +63,7 @@ Hook ทำงานเฉพาะ Claude Code ที่รันบนเค�
 Claude Code ไม่บังคับ (ถ้าไม่มี แมวน้ำก็ยังรันได้ และสั่งเองด้วย `--set` ได้)
 
 **ใช้ตัวติดตั้ง (ง่ายสุด)** ดาวน์โหลด `ai-mascot-hook-<version>-setup.exe` จากหน้า
-[Releases](https://github.com/thanachaiakt/ai-mascot-hook/releases) แล้วรัน
+[release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest) แล้วรัน
 ตัวติดตั้งลงให้เฉพาะผู้ใช้คนนี้ (ไม่ต้องใช้สิทธิ์ admin) ไว้ที่ `%LOCALAPPDATA%\Programs\ai-mascot-hook`
 ก่อนจะแตะ Claude Code จะมีหน้า **Connect to Claude Code** อธิบายว่าจะเพิ่มอะไรลงใน
 `~\.claude\settings.json` และขออนุญาตก่อน ถ้าไม่ต้องการ hook ให้เอาเครื่องหมายถูกออก
@@ -109,7 +109,7 @@ Claude desktop app ใช้ได้เช่นกัน แต่เป็น
 ต้องใช้ macOS 11 ขึ้นไป (ชิป Apple หรือ Intel) แมวน้ำไม่มีไอคอนใน Dock
 
 **ติดตั้งจาก release (ง่ายสุด)** ดาวน์โหลด `ai-mascot-hook-<version>-macos.tar.gz`
-(ไฟล์เดียวใช้ได้ทั้งสองชิป) จากหน้า [Releases](https://github.com/thanachaiakt/ai-mascot-hook/releases)
+(ไฟล์เดียวใช้ได้ทั้งสองชิป) จากหน้า [release ล่าสุด](https://github.com/thanachaiakt/ai-mascot-hook/releases/latest)
 แล้วรันใน Terminal
 
 ```bash
