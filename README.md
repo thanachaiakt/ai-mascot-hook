@@ -89,7 +89,7 @@ Easiest way. The installer is for your user only (no admin prompt) and installs 
 5. **Restart Claude Code.** Send Claude a message: the seal should start clapping.
 
 To remove it, use **Settings > Apps**; that also removes the hooks, and asks whether to delete
-the seal's settings (`%LOCALAPPDATA%i-mascot-hook`) too. The installer's own pages are in Thai.
+the seal's settings (`%LOCALAPPDATA%\ai-mascot-hook`) too. The installer's own pages are in Thai.
 
 To update, run the newer `setup.exe` over the old install (or `install.sh` again on a Mac): it
 says which version it is replacing, keeps your settings and hooks, and restarts the seal.
