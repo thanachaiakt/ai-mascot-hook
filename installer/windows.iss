@@ -26,6 +26,9 @@ OutputBaseFilename=ai-mascot-hook-{#AppVersion}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; An upgrade runs over the same folder: the seal is stopped by PrepareToInstall, not by Restart Manager
+CloseApplications=no
+VersionInfoVersion={#AppVersion}
 UninstallDisplayIcon={app}\ai-mascot-hook.exe
 
 ; Inno Setup ships no Thai wizard text, so the texts a user reads are overridden here. Anything
@@ -66,6 +69,10 @@ TaskStartup=เปิดแมวน้ำให้อัตโนมัติ�
 TaskStartupGroup=ตัวเลือกเพิ่มเติม:
 RunHooks=กำลังเพิ่มฮุกให้ Claude Code...
 RunStart=เปิดแมวน้ำเดี๋ยวนี้
+UpdateTitle=อัปเดต ai-mascot-hook
+UpdateWelcome=พบ ai-mascot-hook รุ่น %1 ในเครื่องแล้ว ตัวติดตั้งนี้จะอัปเดตเป็นรุ่น %2%n%nการตั้งค่า ตำแหน่งแมวน้ำ และฮุกของ Claude Code จะอยู่ครบ แมวน้ำที่เปิดอยู่จะถูกปิดแล้วเปิดใหม่ให้เอง%n%nกด "ถัดไป" เพื่ออัปเดต
+SameVersion=ติดตั้ง ai-mascot-hook รุ่น %1 อยู่แล้ว ตัวติดตั้งนี้จะติดตั้งทับ (ซ่อมแซม) ให้%n%nการตั้งค่าของคุณจะอยู่ครบ
+OlderVersion=ในเครื่องมี ai-mascot-hook รุ่น %1 ซึ่งใหม่กว่ารุ่นของตัวติดตั้งนี้ (%2)%n%nต้องการติดตั้งรุ่นเก่ากว่าทับหรือไม่?
 HooksTitle=เชื่อมต่อกับ Claude Code
 HooksSubtitle=ai-mascot-hook ขออนุญาตแก้ไขไฟล์ตั้งค่าของ Claude Code
 HooksAllow=อนุญาตให้เพิ่มฮุกลงใน settings.json
@@ -87,21 +94,62 @@ Name: "{userstartup}\ai-mascot-hook"; Filename: "{app}\ai-mascot-hook.exe"; Task
 
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install-hooks.ps1"" -Exe ""{app}\ai-mascot-hook.exe"""; StatusMsg: "{cm:RunHooks}"; Flags: runhidden waituntilterminated; Check: HooksAllowed
-Filename: "{app}\ai-mascot-hook.exe"; Description: "{cm:RunStart}"; Flags: nowait postinstall skipifsilent
+; after an update the seal comes back by itself, even in a silent run, since the update closed it
+Filename: "{app}\ai-mascot-hook.exe"; Flags: nowait runasoriginaluser; Check: IsUpgrade
+Filename: "{app}\ai-mascot-hook.exe"; Description: "{cm:RunStart}"; Flags: nowait postinstall skipifsilent; Check: not IsUpgrade
 
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM ai-mascot-hook.exe"; Flags: runhidden waituntilterminated; RunOnceId: "StopSeal"
 Filename: "{app}\ai-mascot-hook.exe"; Parameters: "--remove-hooks"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveHooks"
 
 [Code]
+const
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{6B0C7E2A-3F4D-4C1B-9A8E-5D2F1E7C9A41}_is1';
+
 var
   HooksPage: TInputOptionWizardPage;
   PurgeSettings: Boolean;
+  OldVersion: String;
+  // -1 an older build is installed (an update), 0 the same, 1 a newer one, 2 nothing installed
+  Compared: Integer;
+
+function HooksInstalled: Boolean;
+var
+  Text: AnsiString;
+begin
+  Result := LoadStringFromFile(ExpandConstant('{%USERPROFILE}\.claude\settings.json'), Text)
+    and (Pos('ai-mascot-hook', String(Text)) > 0);
+end;
+
+function IsUpgrade: Boolean;
+begin
+  Result := Compared < 2;
+end;
+
+procedure Compare;
+var
+  Old, New: Int64;
+begin
+  Compared := 2;
+  if not RegQueryStringValue(HKCU, UninstallKey, 'DisplayVersion', OldVersion) then Exit;
+  if StrToVersion(OldVersion, Old) and StrToVersion('{#AppVersion}', New) then
+    Compared := -ComparePackedVersion(New, Old)
+  else
+    Compared := 0;
+end;
 
 // Editing another program's settings needs the user's say-so, so this page spells out
 // exactly what changes in settings.json before asking
 procedure InitializeWizard;
 begin
+  Compare;
+  if Compared = -1 then
+  begin
+    WizardForm.WelcomeLabel1.Caption := CustomMessage('UpdateTitle');
+    WizardForm.WelcomeLabel2.Caption := FmtMessage(CustomMessage('UpdateWelcome'), [OldVersion, '{#AppVersion}']);
+  end
+  else if Compared = 0 then
+    WizardForm.WelcomeLabel2.Caption := FmtMessage(CustomMessage('SameVersion'), [OldVersion]);
   HooksPage := CreateInputOptionPage(wpWelcome,
     CustomMessage('HooksTitle'), CustomMessage('HooksSubtitle'),
     FmtMessage(CustomMessage('HooksBody'), [ExpandConstant('{%USERPROFILE}')]),
@@ -110,9 +158,25 @@ begin
   HooksPage.Values[0] := True;
 end;
 
+// On an update whose hooks are already in place the question was answered once: refresh them
+// without asking again. Anyone who declined (or has none) is asked as on a first install.
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = HooksPage.ID) and IsUpgrade and HooksInstalled;
+end;
+
 function HooksAllowed: Boolean;
 begin
-  Result := HooksPage.Values[0];
+  Result := (IsUpgrade and HooksInstalled) or HooksPage.Values[0];
+end;
+
+// Installing an older build over a newer one is allowed, but only on purpose
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = wpWelcome) and (Compared = 1) then
+    Result := MsgBox(FmtMessage(CustomMessage('OlderVersion'), [OldVersion, '{#AppVersion}']),
+      mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
 end;
 
 // A running seal locks its exe, so an upgrade over it would fail to replace the file

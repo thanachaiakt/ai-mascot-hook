@@ -13,7 +13,10 @@ the status file; `ai-mascot-hook --install-hooks` points Claude Code's hooks at 
 program (`--remove-hooks` takes them out), and on Windows
 `tools/install-hooks.ps1` does the same by running the program. The Windows installer
 (Thai text) and `install-mac.sh` remove the hooks on uninstall and ask whether to delete the
-data folder as well (placement, `status.txt`, state); silent uninstalls keep it. The exe
+data folder as well (placement, `status.txt`, state); silent uninstalls keep it. Running a newer installer over an install updates it: the version found is shown, settings
+and hooks (already agreed to) are kept and refreshed without asking again, and the seal is
+restarted; an older installer asks before replacing a newer build. `--version` prints the
+version. The exe
 carries the seal icon (`assets/icon.ico`, from `tools/make_icon.py`). Only the program's own
 hooks are added, replaced or removed: every other hook and setting stays, in its order.
 The file is rewritten as indented JSON after a `settings.json.bak-<time>` backup, and a

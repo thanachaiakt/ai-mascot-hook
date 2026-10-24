@@ -37,6 +37,18 @@ if [ "${1:-}" = "--uninstall" ]; then
     exit 0
 fi
 
+# an update keeps everything: the settings stay, the hooks are refreshed, the seal restarts.
+# The installed binary is not asked for its version: builds before 0.1.2 would start the seal
+# instead of answering.
+new="$("$here/ai-mascot-hook" --version 2>/dev/null || true)"
+if [ -x "$bin" ]; then
+    echo "พบ ai-mascot-hook ในเครื่องแล้ว จะอัปเดตเป็นรุ่น ${new:-ใหม่} (การตั้งค่าอยู่ครบ แมวน้ำจะเปิดใหม่ให้เอง)"
+    # hooks already in place were agreed to once: refresh them without asking again
+    if grep -q "ai-mascot-hook" "$HOME/.claude/settings.json" 2>/dev/null; then
+        set -- --yes
+    fi
+fi
+
 stop_seal
 mkdir -p "$HOME/bin" "$HOME/Library/LaunchAgents"
 cp "$here/ai-mascot-hook" "$bin"

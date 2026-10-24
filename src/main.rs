@@ -33,6 +33,11 @@ fn main() {
             let word = args.get(1).map(String::as_str).unwrap_or("");
             std::process::exit(if status::write_state(&store::data_dir(), word).is_ok() { 0 } else { 2 });
         }
+        // for the Mac installer, which tells an update from a fresh install by this
+        Some("--version") => {
+            println!("{}", env!("CARGO_PKG_VERSION"));
+            return;
+        }
         Some("--install-hooks") => {
             let exe = args.iter().position(|a| a == "--exe").and_then(|i| args.get(i + 1));
             std::process::exit(hooks::run(true, exe.map(String::as_str)))
