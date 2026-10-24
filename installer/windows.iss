@@ -11,7 +11,7 @@ AppId={{6B0C7E2A-3F4D-4C1B-9A8E-5D2F1E7C9A41}
 AppName=ai-mascot-hook
 AppVersion={#AppVersion}
 AppPublisher=Thanachai Aktananan
-AppPublisherURL=https://github.com/thanachaiakt/ai-mascot-status
+AppPublisherURL=https://github.com/thanachaiakt/ai-mascot-hook
 ; Per user, so no admin prompt: the hooks and settings it touches are per user anyway
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\ai-mascot-hook

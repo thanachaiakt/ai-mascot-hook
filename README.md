@@ -61,7 +61,7 @@ Needs 64-bit Windows 10 or later. Claude Code is optional
 (without it the seal still runs, and you can drive it by hand with `--set`).
 
 **With the installer (easiest).** Download `ai-mascot-hook-<version>-setup.exe` from the
-[Releases](https://github.com/thanachaiakt/ai-mascot-status/releases) page and run it. It
+[Releases](https://github.com/thanachaiakt/ai-mascot-hook/releases) page and run it. It
 installs for your user only (no admin prompt) into `%LOCALAPPDATA%\Programs\ai-mascot-hook`.
 Before it touches Claude Code it shows a **Connect to Claude Code** page that explains what
 it will add to `~\.claude\settings.json` and asks for permission; untick the box to skip
@@ -106,7 +106,7 @@ the seal reads those copies as well and follows whichever was written last.
 Needs macOS 11 or later (Apple silicon or Intel). The seal has no Dock icon.
 
 **From a release (easiest).** Download `ai-mascot-hook-<version>-macos.tar.gz` (one binary
-for both chip types) from the [Releases](https://github.com/thanachaiakt/ai-mascot-status/releases)
+for both chip types) from the [Releases](https://github.com/thanachaiakt/ai-mascot-hook/releases)
 page, then in Terminal:
 
 ```bash
