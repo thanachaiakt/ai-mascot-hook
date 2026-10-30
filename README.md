@@ -9,12 +9,18 @@ and naps when idle, waking every minute (or as often as you set) to play. Feed i
 break times for it to ring an alarm clock with your own message.
 
 <p align="center">
-  <img src="assets/gif/thinking.gif" width="120" alt="Seal thinking">
-  <img src="assets/gif/working.gif" width="120" alt="Seal swimming in a hard hat">
-  <img src="assets/gif/asking.gif" width="120" alt="Seal waving from an ice floe">
-  <img src="assets/gif/active.gif" width="120" alt="Seal in sunglasses">
-  <img src="assets/gif/error.gif" width="120" alt="Seal crying">
-  <img src="assets/gif/completed.gif" width="120" alt="Seal napping">
+  <img src="assets/gif/happy.gif" width="160" alt="Seal clapping">
+  <img src="assets/gif/working.gif" width="160" alt="Seal swimming in a hard hat">
+  <img src="assets/gif/asking.gif" width="160" alt="Seal waving from an ice floe">
+  <img src="assets/gif/completed.gif" width="160" alt="Seal napping"><br>
+  <img src="assets/gif/thinking.gif" width="160" alt="Seal thinking">
+  <img src="assets/gif/active.gif" width="160" alt="Seal in sunglasses">
+  <img src="assets/gif/error.gif" width="160" alt="Seal crying">
+  <img src="assets/gif/slide.gif" width="160" alt="Seal sliding on its belly"><br>
+  <img src="assets/gif/break-time.gif" width="160" alt="Alarm clock ringing for a break">
+  <img src="assets/gif/toy-car.gif" width="160" alt="Seal playing with a toy car">
+  <img src="assets/gif/ball.gif" width="160" alt="Seal playing with a ball">
+  <img src="assets/gif/salmon.gif" width="160" alt="Seal eating a salmon">
 </p>
 
 ## Contents

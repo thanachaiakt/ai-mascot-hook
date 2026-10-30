@@ -8,12 +8,18 @@
 ให้อาหาร (แซลมอน) ได้จากเมนู และตั้งเวลาพักให้นาฬิกาปลุกดังพร้อมข้อความของคุณได้ พร้อมกล่องข้อความบอกสถานะแบบ pixel art เข้าชุดกับตัวแมวน้ำ
 
 <p align="center">
-  <img src="assets/gif/thinking.gif" width="120" alt="แมวน้ำนั่งคิด">
-  <img src="assets/gif/working.gif" width="120" alt="แมวน้ำว่ายน้ำใส่หมวกนิรภัย">
-  <img src="assets/gif/asking.gif" width="120" alt="แมวน้ำโบกมือบนก้อนน้ำแข็ง">
-  <img src="assets/gif/active.gif" width="120" alt="แมวน้ำใส่แว่นกันแดด">
-  <img src="assets/gif/error.gif" width="120" alt="แมวน้ำร้องไห้">
-  <img src="assets/gif/completed.gif" width="120" alt="แมวน้ำนอนหลับ">
+  <img src="assets/gif/happy.gif" width="160" alt="แมวน้ำตบมือ">
+  <img src="assets/gif/working.gif" width="160" alt="แมวน้ำว่ายน้ำใส่หมวกนิรภัย">
+  <img src="assets/gif/asking.gif" width="160" alt="แมวน้ำโบกมือบนก้อนน้ำแข็ง">
+  <img src="assets/gif/completed.gif" width="160" alt="แมวน้ำนอนหลับ"><br>
+  <img src="assets/gif/thinking.gif" width="160" alt="แมวน้ำนั่งคิด">
+  <img src="assets/gif/active.gif" width="160" alt="แมวน้ำใส่แว่นกันแดด">
+  <img src="assets/gif/error.gif" width="160" alt="แมวน้ำร้องไห้">
+  <img src="assets/gif/slide.gif" width="160" alt="แมวน้ำไถลตัวบนท้อง"><br>
+  <img src="assets/gif/break-time.gif" width="160" alt="นาฬิกาปลุกดังได้เวลาพัก">
+  <img src="assets/gif/toy-car.gif" width="160" alt="แมวน้ำเล่นรถของเล่น">
+  <img src="assets/gif/ball.gif" width="160" alt="แมวน้ำเล่นลูกบอล">
+  <img src="assets/gif/salmon.gif" width="160" alt="แมวน้ำกินแซลมอน">
 </p>
 
 ## สารบัญ
