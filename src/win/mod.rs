@@ -287,6 +287,12 @@ impl App {
                 self.restart_autohide();
             }
         }
+        // the file keeps saying completed, but the seal goes back to napping
+        if done_showing(&self.state, self.stamp) {
+            self.state = "idle".into();
+            self.sync_clip();
+            self.restart_autohide();
+        }
     }
 
     // ---- pointer on the seal ---------------------------------------------------

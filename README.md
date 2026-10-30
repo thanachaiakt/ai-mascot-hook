@@ -69,7 +69,7 @@ the seal on your desktop ◀──(reads the file every 0.4 s)──────
 | `UserPromptSubmit` | `loading` | claps while thinking |
 | `PreToolUse`, `PostToolUse` | `working` | swims in a hard hat, and stops to think in turn |
 | `PermissionRequest`, `Notification` (permission, idle, MCP prompts) | `asking` | waves for your attention |
-| `Stop` | `completed` | shows off in sunglasses, turn is done |
+| `Stop` | `completed` | shows off in sunglasses, turn is done; naps again after 10 s |
 | `StopFailure` (the turn ended on an API error) | `error` | cries |
 
 Hooks only fire for Claude Code running on this computer. Nothing is sent over the network.
@@ -371,7 +371,7 @@ The previews below are the animated GIFs from `assets/gif/` and `assets/gif-pose
 | `loading` | [<img src="assets/gif/loading.gif" width="120" alt="Loading animation preview">](assets/loading.png) | Claps happily and flaps its flippers while thinking. |
 | `working` | [<img src="assets/gif/working.gif" width="120" alt="Working animation preview">](assets/working.png) [<img src="assets/gif-poses/thinking.gif" width="120" alt="Thinking animation preview">](assets/thinking.png) | Swims and spins in a hard hat, shovel in hand, then sits and thinks, in turn. The swimmer is shown 1.15× larger, since it is drawn smaller than the other seals; the window reaches past the seal's box so the whole swimmer stays in view at the edges and mid-spin. |
 | `asking` | [<img src="assets/gif/asking.gif" width="120" alt="Asking animation preview">](assets/asking.png) | Sits on an ice floe and waves to ask for input. |
-| `completed` | [<img src="assets/gif-poses/active.gif" width="120" alt="Completed animation preview">](assets/active.png) | Shows off in sunglasses, sparkling, after the turn is done. |
+| `completed` | [<img src="assets/gif-poses/active.gif" width="120" alt="Completed animation preview">](assets/active.png) | Shows off in sunglasses, sparkling, after the turn is done, for 10 s, then naps as in `idle`. |
 | `error` | [<img src="assets/gif-poses/error.gif" width="120" alt="Error animation preview">](assets/error.png) | Cries into its flippers when the turn ends on an error. |
 | `idle` | [<img src="assets/gif/completed.gif" width="120" alt="Napping animation preview">](assets/completed.png) [<img src="assets/gif-poses/slide.gif" width="120" alt="Sliding animation preview">](assets/slide.png) [<img src="assets/gif-poses/toy-car.gif" width="120" alt="Toy car animation preview">](assets/toy-car.png) [<img src="assets/gif-poses/ball.gif" width="120" alt="Ball animation preview">](assets/ball.png) | Naps under floating zZ; every minute it wakes to slide on its belly or play with a toy car or a ball, one at random, then naps again. |
 | Feed | [<img src="assets/gif-poses/salmon.gif" width="120" alt="Salmon animation preview">](assets/salmon.png) | Hugs and eats a salmon bite by bite, licks its lips, waves, and glows with a heart and sparkles. |

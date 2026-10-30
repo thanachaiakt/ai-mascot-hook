@@ -69,7 +69,7 @@ Claude Code ──(เรียก hook)──▶ ai-mascot-hook --set working �
 | ส่งข้อความ (`UserPromptSubmit`) | `loading` | ตบมือ กำลังคิด |
 | ก่อน/หลังใช้ tool (`PreToolUse`, `PostToolUse`) | `working` | ว่ายน้ำใส่หมวกนิรภัย สลับกับนั่งคิด |
 | ขออนุญาต หรือรอคำตอบ (`PermissionRequest`, `Notification`) | `asking` | โบกมือเรียกคุณ |
-| ตอบเสร็จ (`Stop`) | `completed` | ใส่แว่นกันแดดเท่ๆ เสร็จแล้ว |
+| ตอบเสร็จ (`Stop`) | `completed` | ใส่แว่นกันแดดเท่ๆ เสร็จแล้ว ผ่านไป 10 วินาทีกลับไปนอนหลับ |
 | ตอบไม่จบเพราะ API error (`StopFailure`) | `error` | ร้องไห้ |
 
 Hook ทำงานเฉพาะ Claude Code ที่รันบนเครื่องนี้ และโปรแกรมไม่ส่งข้อมูลอะไรออกทางเน็ตเลย
@@ -391,7 +391,7 @@ Build เสร็จแล้วโปรแกรมทำงานได้�
 | `loading` | [<img src="assets/gif/loading.gif" width="120" alt="ตัวอย่างท่า loading">](assets/loading.png) | ตบมือและกระพือครีบอย่างมีความสุขตอนคิด |
 | `working` | [<img src="assets/gif/working.gif" width="120" alt="ตัวอย่างท่า working">](assets/working.png) [<img src="assets/gif-poses/thinking.gif" width="120" alt="ตัวอย่างท่านั่งคิด">](assets/thinking.png) | ว่ายและหมุนตัวใส่หมวกนิรภัย ถือพลั่ว สลับกับนั่งคิด ตอนทำงาน ตัวที่ว่ายน้ำแสดงใหญ่ขึ้น 1.15 เท่า เพราะถูกวาดเล็กกว่าแมวน้ำท่าอื่น หน้าต่างจึงยื่นออกนอกกรอบของแมวน้ำเพื่อให้เห็นตัวเต็มแม้ที่ขอบหรือตอนหมุน |
 | `asking` | [<img src="assets/gif/asking.gif" width="120" alt="ตัวอย่างท่า asking">](assets/asking.png) | นั่งบนก้อนน้ำแข็งและโบกมือขอคำตอบ |
-| `completed` | [<img src="assets/gif-poses/active.gif" width="120" alt="ตัวอย่างท่า completed">](assets/active.png) | ใส่แว่นกันแดดเท่ๆ มีประกายวิบวับ หลังตอบเสร็จ |
+| `completed` | [<img src="assets/gif-poses/active.gif" width="120" alt="ตัวอย่างท่า completed">](assets/active.png) | ใส่แว่นกันแดดเท่ๆ มีประกายวิบวับ หลังตอบเสร็จ 10 วินาที แล้วนอนหลับแบบ `idle` |
 | `error` | [<img src="assets/gif-poses/error.gif" width="120" alt="ตัวอย่างท่า error">](assets/error.png) | เอาครีบปิดหน้าร้องไห้ ตอนตอบไม่จบเพราะ error |
 | `idle` | [<img src="assets/gif/completed.gif" width="120" alt="ตัวอย่างท่านอนหลับ">](assets/completed.png) [<img src="assets/gif-poses/slide.gif" width="120" alt="ตัวอย่างท่าไถลตัว">](assets/slide.png) [<img src="assets/gif-poses/toy-car.gif" width="120" alt="ตัวอย่างท่ารถของเล่น">](assets/toy-car.png) [<img src="assets/gif-poses/ball.gif" width="120" alt="ตัวอย่างท่าเล่นบอล">](assets/ball.png) | นอนหลับมี zZ ลอยอยู่ ทุก 1 นาทีตื่นมาไถลตัวบนท้อง เล่นรถของเล่น หรือเล่นลูกบอล สุ่มหนึ่งท่า แล้วกลับไปนอน |
 | ให้อาหาร | [<img src="assets/gif-poses/salmon.gif" width="120" alt="ตัวอย่างท่ากินแซลมอน">](assets/salmon.png) | กอดกินปลาแซลมอนทีละคำ เลียปาก โบกครีบ มีหัวใจและประกายวิบวับ |

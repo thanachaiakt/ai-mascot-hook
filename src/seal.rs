@@ -1,5 +1,7 @@
 //! What the seal is: its size limits, timings, and the animation clip for each state.
 
+use std::time::{Duration, SystemTime};
+
 use crate::gfx::Strip;
 
 /// The frames' own size: every size the seal takes keeps this aspect.
@@ -97,6 +99,15 @@ pub fn act_for(state: &str) -> &'static Act {
         // idle, or nothing written yet
         _ => &IDLE_ACT,
     }
+}
+
+/// How long the seal shows off after a turn ends. No hook says the user has walked away
+/// (the VS Code extension sends no idle prompt), so without this it would never nap again.
+pub const DONE_FOR: Duration = Duration::from_secs(10);
+
+/// `state`, written at `stamp`, has been shown long enough to settle into idle.
+pub fn done_showing(state: &str, stamp: Option<SystemTime>) -> bool {
+    state == "completed" && stamp.and_then(|t| t.elapsed().ok()).is_some_and(|age| age >= DONE_FOR)
 }
 
 /// Clips played over whatever the state's act is, each for at least its milliseconds,

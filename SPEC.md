@@ -92,6 +92,8 @@ next check rather than treated as a state:
 | `idle` | Napping; now and then sliding, a toy car or a ball | `Napping… zZ` | Gray |
 
 An unknown or missing state is idle: its animations and its bubble text and accent.
+`completed` settles into idle once the file has said it for 10 s (by its modified time),
+since no hook reports that the user has walked away; a new write starts it over.
 The animation switches when a state change is detected; the bubble shows the
 matching configured text when visible.
 
