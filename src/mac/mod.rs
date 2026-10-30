@@ -29,6 +29,7 @@ use crate::bubble::*;
 use crate::editor::*;
 use crate::gfx::*;
 use crate::menu::*;
+use crate::phrases::{fill, next_roll};
 use crate::seal::*;
 use crate::status::*;
 use crate::store::*;
@@ -90,6 +91,8 @@ struct App {
     /// when the bubble hides itself, with auto hide on
     hide_at: Option<Instant>,
     auto_hidden: bool,
+    /// the line of a message set the bubble says, picked anew each time it speaks up
+    roll: usize,
     /// the minute of the day last looked at for a break
     minute: u32,
     /// when the bubble's next frame is due, while it is up or on its way out
@@ -397,10 +400,11 @@ impl App {
         if now.duration_since(self.frame_at).as_millis() as u32 >= self.turns.clip().interval {
             self.frame_at = now;
             self.frame = (self.frame + 1) % self.strip.frames.max(1);
-            if self.frame == 0 && self.turns.looped() {
+            if self.frame == 0 && self.turns.looped(self.status.idle_every * 1000) {
                 self.play();
-                // a scene's words come and go with its clips
-                self.update_bubble();
+                // a new pose speaks up again, as a new state does; a scene's words come
+                // and go with its clips
+                self.restart_autohide();
             } else {
                 self.draw_mascot();
             }
@@ -517,17 +521,12 @@ impl App {
         self.update_bubble();
     }
 
-    fn toggle_status(&mut self) {
-        self.show_status = !self.show_status;
-        self.restart_autohide();
-        self.save();
-    }
-
     // ---- the status bubble -----------------------------------------------------
 
     /// Show the bubble again and, when auto hide is on, start counting down to hiding it.
     fn restart_autohide(&mut self) {
         self.auto_hidden = false;
+        self.roll = next_roll(self.roll, self.status.count(&self.state));
         self.hide_at = (self.show_status && self.status.autohide > 0).then(|| Instant::now() + std::time::Duration::from_secs(self.status.autohide as u64));
         self.update_bubble();
     }
@@ -566,10 +565,9 @@ impl App {
         } else if let Some(e) = &self.editor {
             // while editing, the bubble previews the state being edited, as typed and colored
             let i = e.draft.selected;
-            let typed = e.fields[i].stringValue().to_string();
-            (if typed.trim().is_empty() { STATES[i].2.to_string() } else { typed }, Some(accent(STATES[i].0)))
+            (e.draft.preview(&e.fields[i].stringValue().to_string(), self.roll), Some(accent(STATES[i].0)))
         } else {
-            (self.status.text(&self.state).to_string(), Some(accent(&self.state)))
+            (self.status.text(&self.state, self.roll).to_string(), Some(accent(&self.state)))
         };
         let ink = match &self.editor {
             Some(e) => e.draft.colors[e.draft.selected],
@@ -640,7 +638,6 @@ pub fn run() {
         menu_key: false,
         editor: None,
         editor_fonts: EditorFonts {
-            title: font(17.0 * scale, 600),
             label: font(14.0 * scale, 400),
             heading: font(11.5 * scale, 700),
             hint: font(12.0 * scale, 400),
@@ -668,6 +665,7 @@ pub fn run() {
         status: StatusText::load(&data_dir().join("status.txt")),
         hide_at: None,
         auto_hidden: false,
+        roll: 0,
         minute: minute_of_day(),
         bubble_at: None,
     };

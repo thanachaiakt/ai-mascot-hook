@@ -11,8 +11,9 @@ use objc2_foundation::{NSNotification, NSObjectProtocol, NSString};
 
 use super::*;
 
-/// The most characters a state's words may have.
-const MAX_CHARS: usize = 60;
+/// The most characters the break's and the feed's boxes may have; a state's may have
+/// `MAX_CHARS`.
+const EXTRA_CHARS: usize = 60;
 
 /// The open status-text editor: its panel, its text boxes and the choices being made.
 pub(super) struct Editor {
@@ -60,7 +61,7 @@ define_class!(
             let at = event.locationInWindow();
             with(|app| {
                 let (x, y) = view_pixels(self, at, app.scale);
-                let hit = editor_hit(app.scale, x as f32, y as f32);
+                let hit = app.editor.as_ref().and_then(|e| e.draft.hit(app.scale, x as f32, y as f32));
                 app.editor_hover(hit);
             });
         }
@@ -116,8 +117,10 @@ define_class!(
         fn control_text_did_change(&self, notification: &NSNotification) {
             if let Some(field) = notification.object().and_then(|o| o.downcast::<NSTextField>().ok()) {
                 let text = field.stringValue().to_string();
-                if text.chars().count() > MAX_CHARS {
-                    field.setStringValue(&NSString::from_str(&text.chars().take(MAX_CHARS).collect::<String>()));
+                // each box is tagged with its place: a state's has room for a set's lines
+                let limit = if (field.tag() as usize) < EXTRAS { MAX_CHARS } else { EXTRA_CHARS };
+                if text.chars().count() > limit {
+                    field.setStringValue(&NSString::from_str(&text.chars().take(limit).collect::<String>()));
                 }
             }
             with(|app| app.update_bubble());
@@ -147,6 +150,15 @@ define_class!(
 impl EditorTarget {
     pub(super) fn new(mtm: MainThreadMarker) -> Retained<EditorTarget> {
         unsafe { msg_send![EditorTarget::alloc(mtm), init] }
+    }
+}
+
+/// Put `words` in a text box, and in its field editor's copy while it is being typed in.
+fn set_words(field: &NSTextField, words: &str) {
+    let text = NSString::from_str(words);
+    field.setStringValue(&text);
+    if let Some(editing) = field.currentEditor() {
+        editing.setString(&text);
     }
 }
 
@@ -227,20 +239,22 @@ impl App {
                 let top = (f.1 + f.3) as f64 / 2.0 / pt - line / 2.0;
                 let frame = CGRect::new(CGPoint::new(f.0 as f64 / pt + inset, wh as f64 / pt - top - line), CGSize::new((f.2 - f.0) as f64 / pt - 2.0 * inset, line));
                 field.setFrame(frame);
+                field.setTag(i as isize);
+                // shown as the draft says (the editor opens on the states' tab)
+                field.setHidden(!draft.shows(i));
                 view.addSubview(&field);
                 field
             })
             .collect::<Vec<_>>();
 
         win.setAutorecalculatesKeyViewLoop(true);
-        let selected = draft.selected;
         self.editor = Some(Editor { win, fields, draft, canvas, closing: None });
         self.paint_editor();
         let e = self.editor.as_ref().unwrap();
         present(self.mtm, &e.win, &e.canvas, wx, wy, 255, self.scale);
         e.win.invalidateShadow();
         e.win.makeKeyAndOrderFront(None);
-        e.win.makeFirstResponder(Some(&e.fields[selected]));
+        self.focus_first_box();
         self.sync_clip();
         self.update_bubble();
     }
@@ -286,11 +300,26 @@ impl App {
         }
     }
 
+    /// Hand the keyboard to the first box shown, so typing never goes into a hidden box.
+    fn focus_first_box(&self) {
+        let Some(e) = self.editor.as_ref() else { return };
+        e.win.makeFirstResponder(Some(&e.fields[e.draft.first_box()]));
+    }
+
+    /// Show the boxes the draft shows, hide the rest, and move the keyboard to match.
+    fn sync_boxes(&self) {
+        let Some(e) = self.editor.as_ref() else { return };
+        for (i, field) in e.fields.iter().enumerate() {
+            field.setHidden(!e.draft.shows(i));
+        }
+        self.focus_first_box();
+    }
+
     /// A press at `at`, in the editor's pixels. Does what it means, or leaves the view
     /// something to do with the app free.
     fn editor_down(&mut self, at: (i32, i32)) -> Option<Down> {
         let (x, y) = (at.0 as f32, at.1 as f32);
-        let Some(hit) = editor_hit(self.scale, x, y) else {
+        let Some(hit) = self.editor.as_ref()?.draft.hit(self.scale, x, y) else {
             return (y < editor_layout(self.scale).header).then_some(Down::Drag);
         };
         match hit {
@@ -302,6 +331,12 @@ impl App {
             Hit::State(i) => {
                 let e = self.editor.as_ref()?;
                 e.win.makeFirstResponder(Some(&e.fields[i]));
+            }
+            Hit::Set(set) => self.fill_editor(set),
+            Hit::Tab(_) => {
+                self.editor.as_mut()?.draft.act(hit);
+                self.sync_boxes();
+                self.paint_editor();
             }
             _ => {
                 self.editor.as_mut()?.draft.act(hit);
@@ -325,18 +360,23 @@ impl App {
         let Some(e) = self.editor.as_mut() else { return };
         let words = defaults.texts.iter().cloned().chain(defaults.extras());
         for (field, text) in e.fields.iter().zip(words) {
-            let text = NSString::from_str(&text);
-            field.setStringValue(&text);
-            // a box being typed in shows its field editor's copy of the words
-            if let Some(editing) = field.currentEditor() {
-                editing.setString(&text);
-            }
+            set_words(field, &text);
         }
         e.draft.colors = defaults.colors;
         for (field, c) in e.fields.iter().zip(defaults.colors) {
             field.setTextColor(Some(&ns_color(c)));
         }
         self.paint_editor();
+        self.update_bubble();
+    }
+
+    /// Fill every state's box with message set `set`'s lines. Like any typing, it is kept
+    /// only on Save.
+    fn fill_editor(&mut self, set: usize) {
+        let Some(e) = self.editor.as_ref() else { return };
+        for (i, field) in e.fields.iter().take(EXTRAS).enumerate() {
+            set_words(field, &fill(set, i));
+        }
         self.update_bubble();
     }
 

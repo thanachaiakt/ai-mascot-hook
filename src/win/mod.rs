@@ -25,6 +25,7 @@ use crate::bubble::*;
 use crate::editor::*;
 use crate::gfx::*;
 use crate::menu::*;
+use crate::phrases::{fill, next_roll};
 use crate::seal::*;
 use crate::status::*;
 use crate::store::*;
@@ -81,6 +82,8 @@ struct App {
     show_status: bool,
     /// the bubble has had its auto-hide time since the last state change
     auto_hidden: bool,
+    /// the line of a message set the bubble says, picked anew each time it speaks up
+    roll: usize,
     /// the minute of the day last looked at for a break
     minute: u32,
     status: StatusText,
@@ -251,6 +254,7 @@ impl App {
     /// Show the bubble again and, when auto hide is on, start counting down to hiding it.
     fn restart_autohide(&mut self) {
         self.auto_hidden = false;
+        self.roll = next_roll(self.roll, self.status.count(&self.state));
         unsafe {
             if self.show_status && self.status.autohide > 0 {
                 SetTimer(self.mascot, TIMER_AUTOHIDE, self.status.autohide * 1000, None);
@@ -386,11 +390,6 @@ impl App {
 
     fn act(&mut self, action: usize) {
         match action {
-            ACT_STATUS => {
-                self.show_status = !self.show_status;
-                self.restart_autohide();
-                self.save();
-            }
             ACT_EDIT => self.open_editor(),
             ACT_FEED => {
                 self.turns.cut_in(FEED);
@@ -449,10 +448,9 @@ impl App {
         } else if let Some(e) = &self.editor {
             // while editing, the bubble previews the state being edited, as typed and colored
             let i = e.draft.selected;
-            let typed = window_text(e.edits[i]);
-            (if typed.trim().is_empty() { STATES[i].2.to_string() } else { typed }, Some(accent(STATES[i].0)))
+            (e.draft.preview(&window_text(e.edits[i]), self.roll), Some(accent(STATES[i].0)))
         } else {
-            (self.status.text(&self.state).to_string(), Some(accent(&self.state)))
+            (self.status.text(&self.state, self.roll).to_string(), Some(accent(&self.state)))
         };
         let ink = match &self.editor {
             Some(e) => e.draft.colors[e.draft.selected],
@@ -516,10 +514,11 @@ unsafe extern "system" fn mascot_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
             with(|app| match wp {
                 TIMER_FRAME => {
                     app.frame = (app.frame + 1) % app.strip.frames.max(1);
-                    if app.frame == 0 && app.turns.looped() {
+                    if app.frame == 0 && app.turns.looped(app.status.idle_every * 1000) {
                         app.play();
-                        // a scene's words come and go with its clips
-                        app.update_bubble();
+                        // a new pose speaks up again, as a new state does; a scene's
+                        // words come and go with its clips
+                        app.restart_autohide();
                     } else {
                         app.draw_mascot();
                     }
@@ -644,6 +643,7 @@ pub fn run() {
             resize_mode: false,
             show_status,
             auto_hidden: false,
+            roll: 0,
             minute: minute_of_day(),
             status: StatusText::load(&data_dir().join("status.txt")),
             menu: Menu::new(font(14.0 * ui, 700, "Leelawadee UI"), ui),

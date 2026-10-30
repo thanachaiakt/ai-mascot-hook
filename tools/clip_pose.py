@@ -9,7 +9,7 @@ a sticker, with its props (the salmon, crumbs) and lightened toward white: white
 of the fur's gap to white stays (video_poses.py's 0.55 when left out), so less is whiter.
 Bubbles drifting off across the grid, away from the seal, are left out.
 
-    assets/gif-poses/<pose>.gif     300 x 300, the clip's own length, transparent
+    assets/gif/<pose>.gif     300 x 300, the clip's own length, transparent
     assets/<pose>.png               the pet's strip: 260 x 260 frames, every 2nd frame, 256 colors with alpha
 """
 import subprocess
@@ -24,7 +24,7 @@ from sheet_pose import cut
 from video_poses import GIF, PAD, STEP, STRIP, WHITEN, save_gif
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / 'assets' / 'gif-poses'
+OUT = ROOT / 'assets' / 'gif'
 W, H = 1280, 720
 FPS = 24
 NEAR = 40                       # px from the seal a prop may be and still be kept

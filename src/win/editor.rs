@@ -41,7 +41,7 @@ impl App {
             let hwnd = CreateWindowExW(
                 WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
                 wide("SealPetEditor").as_ptr(),
-                wide("ai-mascot-hook · Status text").as_ptr(),
+                wide("ai-mascot-hook · Settings").as_ptr(),
                 WS_POPUP | WS_CLIPCHILDREN,
                 wx,
                 wy,
@@ -56,7 +56,6 @@ impl App {
             let round = DWMWCP_ROUND;
             DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &round as *const _ as *const _, 4);
             let fonts = EditorFonts {
-                title: font(17.0 * ui, 600, "Segoe UI"),
                 label: font(14.0 * ui, 400, "Segoe UI"),
                 heading: font(11.5 * ui, 700, "Segoe UI"),
                 hint: font(12.0 * ui, 400, "Segoe UI"),
@@ -67,16 +66,19 @@ impl App {
             // each text box sits borderless inside its painted field, centered on one line
             let line = canvas.measure(fonts.edit, "Ag").1 + 2;
             let inset = s(12.0);
-            // the states' boxes, then the break's and the feed's
+            // the states' boxes, then the break's and the feed's, each shown as the draft
+            // says (the editor opens on the states' tab)
+            let draft = Draft::new(&self.status, self.show_status, &self.state);
             let words = self.status.texts.iter().cloned().chain(self.status.extras());
             let mut edits = Vec::new();
             for (i, (f, words)) in layout.fields.iter().chain(&layout.extra_fields).zip(words).enumerate() {
                 let top = ((f.1 + f.3) / 2.0) as i32 - line / 2;
+                let visible = if draft.shows(i) { WS_VISIBLE } else { 0 };
                 let edit = CreateWindowExW(
                     0,
                     wide("EDIT").as_ptr(),
                     wide(&words).as_ptr(),
-                    WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL as u32,
+                    WS_CHILD | visible | WS_TABSTOP | ES_AUTOHSCROLL as u32,
                     f.0 as i32 + inset,
                     top,
                     (f.2 - f.0) as i32 - 2 * inset,
@@ -87,13 +89,14 @@ impl App {
                     null(),
                 );
                 SendMessageW(edit, WM_SETFONT, fonts.edit as usize, 1);
-                SendMessageW(edit, EM_LIMITTEXT, 60, 0);
+                // a state's box has room for a set's ten lines
+                SendMessageW(edit, EM_LIMITTEXT, if i < EXTRAS { MAX_CHARS } else { 60 }, 0);
                 edits.push(edit);
             }
             self.editor = Some(Editor {
                 hwnd,
                 edits,
-                draft: Draft::new(&self.status, self.show_status, &self.state),
+                draft,
                 tracking: false,
                 canvas,
                 fonts,
@@ -103,7 +106,7 @@ impl App {
             ShowWindow(hwnd, SW_SHOW);
             SetForegroundWindow(hwnd);
             let e = self.editor.as_ref().unwrap();
-            PostMessageW(hwnd, WM_APP_FOCUS, e.draft.selected, 0);
+            PostMessageW(hwnd, WM_APP_FOCUS, e.draft.first_box(), 0);
         }
         self.update_bubble();
     }
@@ -117,7 +120,19 @@ impl App {
 
     /// What in the editor is under `client`, if anything there takes a click.
     pub(super) fn editor_hit(&self, client: POINT) -> Option<Hit> {
-        editor_hit(self.ui, client.x as f32, client.y as f32)
+        self.editor.as_ref()?.draft.hit(self.ui, client.x as f32, client.y as f32)
+    }
+
+    /// Show the boxes the draft shows and hide the rest, and hand the keyboard to the
+    /// first shown, so typing never goes into a hidden box.
+    fn sync_boxes(&self) {
+        let Some(e) = self.editor.as_ref() else { return };
+        unsafe {
+            for (i, edit) in e.edits.iter().enumerate() {
+                ShowWindow(*edit, if e.draft.shows(i) { SW_SHOW } else { SW_HIDE });
+            }
+            PostMessageW(e.hwnd, WM_APP_FOCUS, e.draft.first_box(), 0);
+        }
     }
 
     /// Note what the pointer is over, repainting when that changes.
@@ -161,11 +176,15 @@ impl App {
                 }
                 return;
             }
+            Hit::Set(set) => return self.fill_editor(set),
             _ => {}
         }
         let Some(e) = self.editor.as_mut() else { return };
         e.draft.act(hit);
         unsafe { InvalidateRect(e.hwnd, null(), 0) };
+        if matches!(hit, Hit::Tab(_)) {
+            self.sync_boxes();
+        }
     }
 
     /// Color the selected state's words.
@@ -193,6 +212,17 @@ impl App {
         self.update_bubble();
     }
 
+    /// Fill every state's box with message set `set`'s lines. Like any typing, it is kept
+    /// only on Save.
+    pub(super) fn fill_editor(&mut self, set: usize) {
+        if let Some(e) = &self.editor {
+            for (i, edit) in e.edits.iter().take(EXTRAS).enumerate() {
+                unsafe { SetWindowTextW(*edit, wide(&fill(set, i)).as_ptr()) };
+            }
+        }
+        self.update_bubble();
+    }
+
     pub(super) fn close_editor(&mut self, keep: bool) {
         let Some(e) = self.editor.take() else { return };
         if keep {
@@ -206,7 +236,7 @@ impl App {
         EDITOR.with(|h| h.set(null_mut()));
         unsafe {
             DestroyWindow(e.hwnd);
-            for f in [e.fonts.title, e.fonts.label, e.fonts.heading, e.fonts.hint, e.fonts.button, e.fonts.edit] {
+            for f in [e.fonts.label, e.fonts.heading, e.fonts.hint, e.fonts.button, e.fonts.edit] {
                 DeleteObject(f);
             }
             DeleteObject(e.field_brush);
@@ -337,7 +367,7 @@ pub(super) unsafe extern "system" fn editor_proc(hwnd: HWND, msg: u32, wp: WPARA
 
 /// A text box's words.
 pub(super) fn window_text(edit: HWND) -> String {
-    let mut buf = [0u16; 128];
+    let mut buf = [0u16; MAX_CHARS + 1];
     let n = unsafe { GetWindowTextW(edit, buf.as_mut_ptr(), buf.len() as i32) } as usize;
     String::from_utf16_lossy(&buf[..n])
 }

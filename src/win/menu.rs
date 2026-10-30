@@ -3,7 +3,6 @@
 use super::*;
 
 // what a menu button does, posted to the seal once the menu has closed
-pub(super) const ACT_STATUS: usize = 0;
 pub(super) const ACT_EDIT: usize = 1;
 pub(super) const ACT_RESIZE: usize = 2;
 pub(super) const ACT_QUIT: usize = 3;
@@ -47,18 +46,8 @@ impl App {
         }
     }
 
-    fn toggle_settings(&mut self) {
-        let (seal, work) = self.menu_anchor();
-        let p = cursor_pos();
-        self.menu.toggle_settings(seal, work, (p.x, p.y));
-        self.draw_menu();
-        if self.menu.settings_open {
-            unsafe { SetTimer(self.menu_win, TIMER_MENU, 16, None) };
-        }
-    }
-
     pub(super) fn draw_menu(&mut self) {
-        let alpha = self.menu.draw(self.show_status);
+        let alpha = self.menu.draw();
         self.menu.canvas.present(self.menu_win, self.menu.at.0, self.menu.at.1, alpha);
     }
 
@@ -90,25 +79,14 @@ impl App {
 
     fn menu_click(&mut self, client: POINT) {
         let action = match self.menu.hit(client.x, client.y) {
-            Some(Item::Settings) => return self.toggle_settings(),
             Some(Item::Feed) => ACT_FEED,
             Some(Item::Resize) => ACT_RESIZE,
+            Some(Item::Settings) => ACT_EDIT,
             Some(Item::Close) => ACT_QUIT,
-            Some(Item::Status) => ACT_STATUS,
-            Some(Item::Edit) => ACT_EDIT,
             None => return,
         };
         self.close_menu();
         unsafe { PostMessageW(self.mascot, WM_APP_ACT, action, 0) };
-    }
-
-    /// Escape folds the settings row first, then closes the menu.
-    fn menu_escape(&mut self) {
-        if self.menu.settings_open {
-            self.toggle_settings();
-        } else {
-            self.close_menu();
-        }
     }
 }
 
@@ -138,7 +116,7 @@ pub(super) unsafe extern "system" fn menu_proc(hwnd: HWND, msg: u32, wp: WPARAM,
             return 0;
         }
         WM_KEYDOWN if wp == VK_ESCAPE as usize => {
-            with(|app| app.menu_escape());
+            with(|app| app.close_menu());
             return 0;
         }
         WM_ACTIVATE if (wp & 0xFFFF) as u32 == WA_INACTIVE => {

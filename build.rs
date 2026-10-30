@@ -10,7 +10,7 @@ use std::fs::{self, File};
 use std::path::PathBuf;
 
 const STRIPS: [&str; 12] = [
-    "loading", "working", "asking", "completed",
+    "happy", "working", "asking", "completed",
     "thinking", "active", "error", "slide", "break-time", "toy-car", "ball", "salmon",
 ];
 

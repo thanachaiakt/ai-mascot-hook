@@ -51,7 +51,7 @@ once with `/hooks`.
 
 On macOS the seal, its animations, the status bubble (with all its animation),
 dragging and resizing (wheel or trackpad scroll, or the corner handle), the icon
-menu and the status text editor look and behave as on Windows, with these
+menu and the settings editor look and behave as on Windows, with these
 differences:
 
 - The icon menu and the editor take the keyboard without making the app active.
@@ -84,12 +84,12 @@ next check rather than treated as a state:
 
 | State | Animation | Default bubble text | Bubble accent |
 |---|---|---|---|
-| `loading` | Thinking/clapping | `Thinking…` | Blue |
+| `loading` | Clapping once, then sitting and thinking | `Thinking…` | Blue |
 | `working` | Working/swimming | `Working…` | Amber |
 | `asking` | Asking/waving | `Need your input!` | Pink |
 | `completed` | Showing off in sunglasses | `All done!` | Green |
 | `error` | Crying | `Something went wrong` | Red |
-| `idle` | Napping; now and then sliding, a toy car or a ball | `Napping… zZ` | Gray |
+| `idle` | Napping; now and then sliding, a toy car, a ball or waving | `Napping… zZ` | Gray |
 
 An unknown or missing state is idle: its animations and its bubble text and accent.
 `completed` settles into idle once the file has said it for 10 s (by its modified time),
@@ -97,10 +97,11 @@ since no hook reports that the user has walked away; a new write starts it over.
 The animation switches when a state change is detected; the bubble shows the
 matching configured text when visible.
 
-`working` and `idle` have more than one animation; a new one takes over only when the
-playing one comes back to its first frame. `working` swims, then sits and thinks, in
-turn, each for at least 10 s. `idle` naps; after every minute of napping the seal wakes
-and plays one of sliding, the toy car or the ball, chosen at random, for at least 10 s,
+`loading` and `idle` have more than one animation; a new one takes over only when the
+playing one comes back to its first frame. `loading` claps once through (about 6 s), then
+sits and thinks until the state changes. `idle` naps; after each nap (60 s unless set
+under **Idle** › **Play every**, 10–120 s) the seal wakes
+and plays one of sliding, the toy car, the ball or waving from the ice floe, chosen at random, for at least 10 s,
 then naps again.
 
 Two short scenes can play over any state, which goes on afterwards:
@@ -142,16 +143,12 @@ times a second while it floats; none are drawn while it is hidden.
 - The menu shows four buttons, in this order:
   1. **Feed** gives the seal a salmon (see Break and Feed above).
   2. **Resize** enables resize mode.
-  3. **Settings** unfolds (or folds) a second row, on the side away from the
-     seal, with two buttons:
-     - **Show status** toggles the bubble and saves that preference (its label
-       reads **Hide status** while the bubble is on).
-     - **Edit status** opens the text and color editor.
+  3. **Settings** opens the settings editor (below), where the bubble is also shown
+     or hidden.
   4. **Close** exits the program.
-- Selecting **Settings** keeps the menu open. The menu closes when any other
-  button is selected or it loses activation; Escape folds the settings row
-  first, then closes the menu. It is positioned within the current monitor's work area and opens
-  below the seal instead when it cannot fit above.
+- The menu closes when a button is selected, when it loses activation, or on Escape. It
+  is positioned within the current monitor's work area and opens below the seal instead
+  when it cannot fit above.
 - In resize mode, the corner handle can be dragged or the mouse wheel can be
   used over the seal. Each wheel notch changes the height by approximately
   10%. The seal keeps the source-frame aspect ratio and its height is limited
@@ -165,15 +162,27 @@ times a second while it floats; none are drawn while it is hidden.
   bubble is placed above the seal when possible, otherwise below, and kept
   within the monitor work area.
 
-## Status text editor
+## Settings editor
 
 The editor is a borderless, rounded window drawn in the seal's style, dragged by
-its header and closed by its × button. It is laid out in two columns (the states' text
-and colors on the left, the bubble and the break and feed on the right), so it stays
-short enough for small or zoomed screens. It provides one text field per state
-(each beside its state's accent dot), eight preset text-color swatches, a **+**
-button for the system color picker, a **Bubble** section, a **Break & Feed** section, and **Reset**,
-**Cancel**, and **Save** actions.
+its header and closed by its × button. It is one column, small enough for small or
+zoomed screens, with two tabs in its header, shown as a segmented control:
+
+- **Status messages** (the one it opens on): **Starter messages** buttons for the message sets
+  (**English** and **ไทย**), one text field per state (each beside its state's accent dot),
+  eight preset text-color swatches and a **+** button for the system color picker.
+- **Other settings**: a **Status bubble** section, an **Idle** section, a **Break** section
+  and a **Feed** section.
+
+**Show status**, **Auto hide**, **Play every** and each of the Break and Feed fields have a short line
+under them saying what they do and when the words show (the Auto hide line names its
+seconds, or says the bubble stays up while it is off; the Play every line names its
+seconds), and **Starter messages** has two lines under it saying it loads a starter
+set of messages, in English or Thai, into every box.
+
+Only the selected tab's fields are shown, and selecting a tab moves the keyboard to its
+first field (on **Status messages**, the selected state's). Edits on both tabs are kept
+until the editor closes. **Reset**, **Cancel** and **Save** sit under both tabs.
 The preset colors are `#18346e`, `#2f80ed`, `#0f9d8a`, `#2e9e44`, `#e07b00`,
 `#d6336c`, `#7048e8`, and `#333333`.
 
@@ -185,20 +194,36 @@ The preset colors are `#18346e`, `#2f80ed`, `#0f9d8a`, `#2e9e44`, `#e07b00`,
 - The selected state is previewed: the seal plays that state's animation and
   the bubble shows its text, as typed, in its color. Closing the editor returns
   the seal and bubble to the state the hooks set.
-- Each field accepts at most 60 characters. Typing `\n` breaks the line there
-  in the bubble; the editor says so beside the Messages heading. On save, real
+- A state's field may hold several lines split by `|`. The bubble says one of them,
+  picked at random and never the one just said, each time it speaks up again: on every
+  state change, every change of animation within a state, and when the bubble is shown or
+  saved. Empty lines are skipped. The preview picks the same way.
+- **English** and **ไทย** fill every state's field with that set's ten lines for the
+  state, split by `|`: built-in lines written for its poses (clapping and thinking,
+  digging and swimming, waving, showing off, crying, napping and playing), clingy and
+  sweet, the seal a little one talking to its Papa (หนู to ป๊า in the Thai), many of them
+  two rows split by `
+`. The fields stay editable, and
+  like any typing nothing is kept until **Save**.
+- A state's field accepts at most 400 characters (room for a set's lines), and the
+  Break and Feed fields at most 60. Typing `\n` breaks the line there in the bubble;
+  the editor says so beside the Messages heading, with the `|`. On save, real
   line breaks are replaced with spaces and surrounding whitespace is removed. Empty values revert to
   that state's default text.
-- **Bubble** has a **Show status** switch (the same preference as the menu's
-  Show/Hide status) and an **Auto hide** switch with a seconds stepper (1–20,
-  default 5). With auto hide on, the bubble shows after each state change (and
-  when shown or saved) and hides again after that many seconds. Both apply on
+- **Status bubble** has a **Show status** switch (whether the bubble is shown, saved in
+  `placement`) and an **Auto hide** switch with a seconds stepper (1–60, by 1 s up
+  to 10 s and by 5 s from there, default 5). With auto hide on, the bubble shows after each state change and
+  each change of animation within a state (and when shown or saved) and hides again after that many seconds. Both apply on
   **Save**.
-- **Break & Feed** has a **Break at** field (times of day such as `12:00, 15:30`;
+- **Idle** has a **Play every** seconds stepper (10–120, by 10 s, default 60): how long
+  the idle seal naps before it wakes to play a pose for 10 s or more. It applies on
+  **Save**, from the next nap.
+- **Break** has a **Break at** field (times of day such as `12:00, 15:30`;
   separated by commas, semicolons or spaces, `.` accepted for `:`, anything else
-  ignored), a **Break text** field (empty reverts to `Time for a break!`) and a **Fed
-  text** field, what the seal says once fed (empty reverts to `Yum, thank you!`). They
-  apply on **Save**; the times are saved sorted, each once.
+  ignored) and a **Break text** field, shown for the minute the alarm clock rings (empty
+  reverts to `Time for a break!`). **Feed** has a **Fed text** field, shown while the
+  seal eats the salmon the menu's **Feed** gives it (empty reverts to `Yum, thank you!`).
+  They apply on **Save**; the times are saved sorted, each once.
 - **Reset** fills all fields (no break times) and every state's text color with defaults; it does not save
   until **Save** is selected.
 - **Cancel**, the × button, or pressing Escape discards edits; Enter saves.
@@ -247,6 +272,7 @@ color.completed=#18346e
 color.error=#18346e
 color.idle=#18346e
 autohide=0
+idle.every=60
 break.times=12:00, 15:30
 break.message=Time for a break!
 feed.message=Yum, thank you!
@@ -255,12 +281,14 @@ feed.message=Yum, thank you!
 The six state keys are optional; empty or unrecognized entries are ignored.
 A plain `color=` line, written by older versions, sets the color of every state
 that has no `color.<state>` line. A color must be exactly six hexadecimal digits prefixed by `#`; invalid color
-values are ignored. `autohide` is the auto-hide time in seconds, 0 for off;
-values above 20 are treated as 20. `break.times` lists the break times (none by
+values are ignored. A state's value may hold several lines split by `|`. `autohide` is
+the auto-hide time in seconds, 0 for off;
+values above 60 are treated as 60. `idle.every` is how long the idle seal naps
+between plays, in seconds (10–120, default 60; values outside are brought into range). `break.times` lists the break times (none by
 default) and `break.message` what the bubble says then; `feed.message` is what it says
 while the seal eats its salmon. A leading byte-order mark is
 ignored. Missing or invalid settings use the defaults. Saving writes all six state
-values, all six `color.<state>` values, `autohide`, `break.times`, `break.message` and
+values, all six `color.<state>` values, `autohide`, `idle.every`, `break.times`, `break.message` and
 `feed.message`.
 
 ## Visual assets and build

@@ -13,7 +13,7 @@ seal there is taken from other frames of the same look. Its head rises past the 
 clip, cutting off the white sticker edge there, so that edge is drawn back in. Error's tears,
 the backdrop's own blue, stay whole.
 
-    assets/gif-poses/<pose>.gif     300 x 300, 25 fps, transparent
+    assets/gif/<pose>.gif     300 x 300, 25 fps, transparent
     assets/<pose>.png               the pet's strip: 260 x 260 frames, every 2nd frame, 256 colors with alpha
 """
 import subprocess
@@ -26,7 +26,7 @@ from scipy import ndimage
 from scipy.spatial import Delaunay
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / 'assets' / 'gif-poses'
+OUT = ROOT / 'assets' / 'gif'
 W, H = 1280, 512                # only the top two rows of cells are read
 CELL = 320
 # y spans of each row of cells. The ball flies up past the first row's labels, so the second

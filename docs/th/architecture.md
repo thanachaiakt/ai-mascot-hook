@@ -24,9 +24,9 @@ flowchart LR
 
 | เหตุการณ์ของ Claude Code | สถานะ | ท่าทาง |
 |---|---|---|
-| `SessionStart`, `SessionEnd` | `idle` | นอนหลับ ทุก 1 นาทีตื่นมาไถลตัว เล่นรถของเล่น หรือลูกบอล |
-| `UserPromptSubmit` | `loading` | ตบมือ |
-| `PreToolUse`, `PostToolUse` | `working` | ว่ายน้ำใส่หมวกนิรภัย สลับกับนั่งคิด |
+| `SessionStart`, `SessionEnd` | `idle` | นอนหลับ ทุก 1 นาที (`idle.every`) ตื่นมาไถลตัว เล่นรถของเล่น ลูกบอล หรือโบกมือ |
+| `UserPromptSubmit` | `loading` | ตบมือ แล้วนั่งคิด |
+| `PreToolUse`, `PostToolUse` | `working` | ว่ายน้ำใส่หมวกนิรภัย |
 | `PermissionRequest`, `Notification` | `asking` | โบกมือบนก้อนน้ำแข็ง |
 | `Stop` | `completed` | ใส่แว่นกันแดดเท่ๆ |
 | `StopFailure` | `error` | ร้องไห้ |
@@ -51,9 +51,10 @@ flowchart TB
         seal["seal.rs<br/>ขนาด เวลา ท่าของแต่ละสถานะ<br/>ฉากให้อาหารและเวลาพัก นาฬิกา"]
         store["store.rs<br/>folder ข้อมูล ไฟล์ state ตำแหน่ง"]
         status["status.rs<br/>ข้อความ สี auto hide<br/>เวลาพักและข้อความ อ่านไฟล์ state"]
+        phrases["phrases.rs<br/>ชุดข้อความอังกฤษและไทย<br/>สถานะละ 10 ข้อความ"]
         bubble["bubble.rs<br/>จัดวาง วาด และ animate กล่องข้อความ"]
         menu["menu.rs<br/>จัดวาง วาด และ animate เมนูปุ่มกลม"]
-        editor["editor.rs<br/>จัดวาง (สองคอลัมน์) วาด<br/>และรับคลิกหน้าตั้งค่า"]
+        editor["editor.rs<br/>จัดวาง (สองแท็บ) วาด<br/>และรับคลิกหน้าตั้งค่า"]
         hooks["hooks.rs<br/>ไฟล์ hook ของแต่ละ agent"]
         anim["anim.rs<br/>เส้นโค้งความเร็ว"]
         gfx["gfx/mod.rs<br/>Canvas รูปทรง Strip"]
@@ -98,6 +99,8 @@ flowchart TB
     bubble --> gfx
     menu & editor --> gfx
     editor --> status
+    status & editor --> phrases
+    phrases --> seal
     bubble --> seal
     store --> seal
     store --> status
@@ -153,7 +156,7 @@ flowchart LR
     press -- "กดค้าง หรือขยับเกิน 4 px" --> drag --> mv["move_to + บันทึกตำแหน่ง"]
     press -- "คลิก" --> menu["เมนูปุ่มกลม"]
     press -- "โหมดปรับขนาด" --> rs["set_height + บันทึก"]
-    menu --> act["ปรับขนาด / แสดงสถานะ /<br/>แก้ข้อความ / ปิด"]
+    menu --> act["ให้อาหาร / ปรับขนาด /<br/>ตั้งค่า / ปิด"]
 ```
 
 บน Windows แต่ละอย่างเป็น timer ของ Win32 (`TIMER_FRAME`, `TIMER_POLL`, `TIMER_BUBBLE`,
@@ -211,7 +214,7 @@ flowchart LR
     state -- "อ่าน" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y ความสูง show_status")]
     placement -- "read_placement ตอนเริ่ม" --> app2
-    editor2["หน้าตั้งค่า กด Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>ข้อความ color.&lt;สถานะ&gt; autohide<br/>break.times break.message feed.message")]
+    editor2["หน้าตั้งค่า กด Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>ข้อความ color.&lt;สถานะ&gt; autohide idle.every<br/>break.times break.message feed.message")]
     statustxt -- "StatusText::load" --> app2
 ```
 
@@ -226,6 +229,7 @@ flowchart LR
 | ท่า ความเร็ว หรือขนาดของแต่ละสถานะ | `seal.rs` (`Clip`, `Act`, `act_for`) |
 | หน้าตาหรือการเคลื่อนไหวของกล่องข้อความ | `bubble.rs` |
 | ข้อความและสีเริ่มต้น | `status.rs` (`STATES`, `DEFAULT_COLOR`, `DEFAULT_BREAK_MESSAGE`, `DEFAULT_FEED_MESSAGE`) |
+| ชุดข้อความอังกฤษและไทย | `phrases.rs` (`ENGLISH`, `THAI`, `SETS`) |
 | ฉากให้อาหารและเวลาพัก ระยะนอนตอน idle | `seal.rs` (`FEED`, `BREAK`, `REST_MS`, `TURN_MS`) |
 | หน้าตาเมนูปุ่มกลม หรือหน้าตั้งค่า | `menu.rs` / `editor.rs` |
 | หน้าต่างเมนู / หน้าตั้งค่าบน Windows | `win/menu.rs` / `win/editor.rs` |

@@ -3,14 +3,17 @@
 //! Kept in `%LOCALAPPDATA%\ai-mascot-hook\status.txt` as `key=value` lines:
 //! `loading`, `working`, `asking`, `completed`, `error`, `idle`, a text color for each as
 //! `color.<state>` (`#rrggbb`), `autohide` (seconds the bubble stays up after each state
-//! change, 0 to keep it up), `break.times` (`12:00, 15:30`) and `break.message` for the
-//! break reminders, and `feed.message`, what the seal says as it eats. A plain `color`, from
-//! older versions, colors every state.
+//! change, 0 to keep it up), `idle.every` (seconds the idle seal naps between plays),
+//! `break.times` (`12:00, 15:30`) and `break.message` for the
+//! break reminders, and `feed.message`, what the seal says as it eats. A state's words may
+//! hold several lines split by `|`, one said at random. A plain `color`, from older
+//! versions, colors every state.
 
 use std::fs;
 use std::path::Path;
 
 use crate::gfx::Rgba;
+use crate::phrases::split;
 
 /// The states the bubble has words for, in the order the editor lists them; idle last.
 pub const STATES: [(&str, &str, &str); 6] = [
@@ -29,8 +32,17 @@ pub const DEFAULT_BREAK_MESSAGE: &str = "Time for a break!";
 /// What the bubble says while the seal eats, unless set.
 pub const DEFAULT_FEED_MESSAGE: &str = "Yum, thank you!";
 
+/// The most characters a state's words may have: room for a set's ten lines.
+pub const MAX_CHARS: usize = 400;
+
 /// The longest the bubble may stay up before it hides itself, in seconds.
-pub const MAX_AUTOHIDE: u32 = 20;
+pub const MAX_AUTOHIDE: u32 = 60;
+
+/// How long the idle seal naps between plays, in seconds, unless set, and the range the
+/// editor allows.
+pub const DEFAULT_IDLE_EVERY: u32 = 60;
+pub const MIN_IDLE_EVERY: u32 = 10;
+pub const MAX_IDLE_EVERY: u32 = 120;
 
 /// The swatches the editor offers.
 pub const SWATCHES: [Rgba; 8] = [
@@ -50,6 +62,8 @@ pub struct StatusText {
     pub colors: [Rgba; STATES.len()],
     /// seconds the bubble stays up after each state change; 0 keeps it up
     pub autohide: u32,
+    /// seconds the idle seal naps before it wakes to play
+    pub idle_every: u32,
     /// the break times, in minutes since midnight, in order
     pub breaks: Vec<u32>,
     pub break_message: String,
@@ -62,6 +76,7 @@ impl StatusText {
             texts: STATES.map(|(_, _, text)| text.to_string()),
             colors: [DEFAULT_COLOR; STATES.len()],
             autohide: 0,
+            idle_every: DEFAULT_IDLE_EVERY,
             breaks: Vec::new(),
             break_message: DEFAULT_BREAK_MESSAGE.to_string(),
             feed_message: DEFAULT_FEED_MESSAGE.to_string(),
@@ -103,6 +118,10 @@ impl StatusText {
                     if let Ok(secs) = value.parse::<u32>() {
                         status.autohide = secs.min(MAX_AUTOHIDE);
                     }
+                } else if key == "idle.every" {
+                    if let Ok(secs) = value.parse::<u32>() {
+                        status.idle_every = secs.clamp(MIN_IDLE_EVERY, MAX_IDLE_EVERY);
+                    }
                 } else if let Some(i) = STATES.iter().position(|(k, _, _)| *k == key) {
                     if !value.is_empty() {
                         status.texts[i] = value.to_string();
@@ -123,6 +142,7 @@ impl StatusText {
             out.push_str(&format!("color.{key}=#{:02x}{:02x}{:02x}\n", c.0, c.1, c.2));
         }
         out.push_str(&format!("autohide={}\n", self.autohide));
+        out.push_str(&format!("idle.every={}\n", self.idle_every));
         out.push_str(&format!("break.times={}\n", format_times(&self.breaks)));
         out.push_str(&format!("break.message={}\n", self.break_message));
         out.push_str(&format!("feed.message={}\n", self.feed_message));
@@ -140,9 +160,15 @@ impl StatusText {
         if scene == "feed" { &self.feed_message } else { &self.break_message }
     }
 
-    /// The words for `state`; anything unknown naps.
-    pub fn text(&self, state: &str) -> &str {
-        &self.texts[index(state)]
+    /// The words for `state`, anything unknown napping: line `roll` of its lines.
+    pub fn text(&self, state: &str, roll: usize) -> &str {
+        let lines = split(&self.texts[index(state)]);
+        lines.get(roll % lines.len().max(1)).copied().unwrap_or("")
+    }
+
+    /// How many lines `state` has to pick from.
+    pub fn count(&self, state: &str) -> usize {
+        split(&self.texts[index(state)]).len()
     }
 
     /// The text color for `state`; anything unknown naps.
@@ -302,6 +328,22 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    #[test]
+    fn several_lines() {
+        let dir = std::env::temp_dir().join(format!("ai-mascot-hook-lines-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("status.txt");
+        let mut status = super::StatusText::defaults();
+        assert_eq!(status.text("loading", 7), "Thinking…");
+        status.texts[0] = "One | two |  | three".into();
+        status.save(&path);
+        let again = super::StatusText::load(&path);
+        assert_eq!(again.count("loading"), 3);
+        assert_eq!(again.text("loading", 1), "two");
+        assert_eq!(again.text("loading", 5), "three");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     fn rgb(c: crate::gfx::Rgba) -> (u8, u8, u8) {
         (c.0, c.1, c.2)
     }
@@ -319,11 +361,16 @@ mod tests {
         status.breaks = vec![720];
         status.break_message = "Stretch!".into();
         status.feed_message = "Yum!".into();
+        status.idle_every = 30;
         status.save(&path);
         let again = super::StatusText::load(&path);
         assert_eq!(again.breaks, vec![720]);
         assert_eq!(again.break_message, "Stretch!");
         assert_eq!(again.feed_message, "Yum!");
+        assert_eq!(again.idle_every, 30);
+        std::fs::write(&path, "idle.every=5\nautohide=90\n").unwrap();
+        let clamped = super::StatusText::load(&path);
+        assert_eq!((clamped.idle_every, clamped.autohide), (super::MIN_IDLE_EVERY, super::MAX_AUTOHIDE));
         std::fs::write(&path, "\u{feff}break.times=9:00\r\n").unwrap();
         assert_eq!(super::StatusText::load(&path).breaks, vec![540]);
         let _ = std::fs::remove_dir_all(&dir);

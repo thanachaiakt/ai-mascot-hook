@@ -41,7 +41,7 @@ Measured on macOS (Apple M2 Pro) with `top`, sampling every 2 s:
 |---|---|---|---|
 | `idle` (napping) | napping, 86 frames | about 3–6% | 16–17 MB |
 | `asking` | waving, 60 frames | about 7–11% | 17 MB |
-| `loading` | clapping, 74 frames | about 7–10% | 17 MB |
+| `loading` | clapping (now only its first 6 s, then thinking), 74 frames | about 7–10% | 17 MB |
 | `working` | swimming, 95 frames | about 10–12% | 17–19 MB |
 
 The figures move around between samples, so read them as rough ranges. Windows was not

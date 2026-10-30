@@ -16,6 +16,7 @@ mod editor;
 mod gfx;
 mod hooks;
 mod menu;
+mod phrases;
 mod seal;
 mod status;
 mod store;

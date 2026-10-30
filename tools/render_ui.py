@@ -2,10 +2,9 @@
 
     python tools/render_ui.py        (needs Pillow)
 
-writes assets/menu.png: fourteen 96 x 96 buttons side by side, drawn at twice their
-on-screen size: status off, status off hovered, status on, status on hovered,
-edit, edit hovered, resize, resize hovered, close, close hovered, settings,
-settings hovered (also used while its submenu is open), feed, feed hovered.
+writes assets/menu.png: eight 96 x 96 buttons side by side, drawn at twice their
+on-screen size: resize, resize hovered, close, close hovered, settings, settings
+hovered, feed, feed hovered.
 """
 from pathlib import Path
 
@@ -56,25 +55,6 @@ def resize_icon(d, c, ink):
     d.polygon([(c - o - K, c + o + K), (c - o - K, c + o - h - K), (c - o + h + K, c + o + K)], fill=ink)
 
 
-def bubble_icon(filled):
-    def draw(d, c, ink):
-        x0, y0, x1, y1 = c - 19 * K, c - 15 * K, c + 19 * K, c + 11 * K
-        tail = [(c - 11 * K, y1 - 2 * K), (c - 13 * K, y1 + 10 * K), (c - 1 * K, y1 - 2 * K)]
-        if filled:
-            d.rounded_rectangle([x0, y0, x1, y1], radius=9 * K, fill=ink)
-            d.polygon(tail, fill=ink)
-            dot = WHITE
-        else:
-            d.rounded_rectangle([x0, y0, x1, y1], radius=9 * K, outline=ink, width=5 * K)
-            d.polygon(tail, fill=ink)
-            dot = ink
-        for dx in (-9, 0, 9):
-            r = 3.2 * K
-            cx, cy = c + dx * K, (y0 + y1) / 2
-            d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=dot)
-    return draw
-
-
 def gear_icon(hole):
     """A cog: eight teeth around a ring, its hole painted in the button's own fill."""
     import math
@@ -92,21 +72,6 @@ def gear_icon(hole):
     return draw
 
 
-def pencil_icon(d, c, ink):
-    """A pencil leaning right, writing on a short line."""
-    import math
-    ang = math.radians(-45)
-    ux, uy = math.cos(ang), math.sin(ang)          # along the pencil, toward its end
-    nx, ny = -uy, ux                               # across it
-    tip = (c - 13 * K, c + 11 * K)
-    half, length, cone = 5.5 * K, 30 * K, 9 * K
-    p = lambda t, s: (tip[0] + ux * t + nx * s, tip[1] + uy * t + ny * s)
-    d.polygon([p(cone, -half), p(length, -half), p(length, half), p(cone, half)], fill=ink)   # body
-    d.polygon([p(0, 0), p(cone - K, -half + K), p(cone - K, half - K)], fill=ink)             # point
-    d.polygon([p(length + 2 * K, -half), p(length + 7 * K, -half), p(length + 7 * K, half), p(length + 2 * K, half)], fill=ink)  # eraser
-    line(d, (c - 4 * K, c + 19 * K), (c + 16 * K, c + 19 * K), ink, 4 * K)
-
-
 def fish_icon(hole):
     """A salmon swimming left, its eye painted in the button's own fill."""
     def draw(d, c, ink):
@@ -122,9 +87,6 @@ def fish_icon(hole):
 if __name__ == '__main__':
     OUT.mkdir(exist_ok=True)
     tiles = [
-        button(bubble_icon(False), WHITE, WHITE, NAVY), button(bubble_icon(False), HOVER, BLUE, NAVY),
-        button(bubble_icon(True), WHITE, WHITE, BLUE), button(bubble_icon(True), HOVER, BLUE, BLUE),
-        button(pencil_icon, WHITE, WHITE, NAVY), button(pencil_icon, HOVER, BLUE, NAVY),
         button(resize_icon, WHITE, WHITE, NAVY), button(resize_icon, HOVER, BLUE, NAVY),
         button(close_icon, WHITE, WHITE, NAVY), button(close_icon, DANGER, RED, RED),
         button(gear_icon(WHITE), WHITE, WHITE, NAVY), button(gear_icon(HOVER), HOVER, BLUE, NAVY),

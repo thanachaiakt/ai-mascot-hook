@@ -31,7 +31,7 @@ PAD = 6                         # px of clear space around the seal in the squar
 # two neighbouring frames are, so START follows END - STEP with no jump. Asking waves with
 # its left flipper in frames 0-77 and draws the resting left flipper too (three flippers),
 # so its loop keeps to the right-flipper waves after that.
-LOOP = {'loading': (53, 201), 'working': (6, 195), 'asking': (88, 208), 'completed': (53, 225)}
+LOOP = {'happy': (53, 201), 'working': (6, 195), 'asking': (88, 208), 'completed': (53, 225)}
 
 
 def zz(clab, sizes, main):

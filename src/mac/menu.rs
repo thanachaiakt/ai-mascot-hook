@@ -41,7 +41,7 @@ define_class!(
         fn key_down(&self, event: &NSEvent) {
             const ESCAPE: u16 = 53;
             if event.keyCode() == ESCAPE {
-                with(|app| app.menu_escape());
+                with(|app| app.close_menu());
             }
         }
     }
@@ -90,15 +90,8 @@ impl App {
         }
     }
 
-    fn toggle_settings(&mut self) {
-        let (seal, work) = self.menu_anchor();
-        let cursor = self.cursor();
-        self.menu.toggle_settings(seal, work, cursor);
-        self.draw_menu();
-    }
-
     fn draw_menu(&mut self) {
-        let alpha = self.menu.draw(self.show_status);
+        let alpha = self.menu.draw();
         present(self.mtm, &self.menu_win, &self.menu.canvas, self.menu.at.0, self.menu.at.1, alpha, self.scale);
     }
 
@@ -135,29 +128,14 @@ impl App {
     /// free.
     fn menu_click(&mut self, at: (i32, i32)) -> bool {
         let Some(item) = self.menu.hit(at.0, at.1) else { return false };
-        if item == Item::Settings {
-            self.toggle_settings();
-            return false;
-        }
         self.close_menu();
         NSCursor::arrowCursor().set();
         match item {
             Item::Feed => self.feed(),
             Item::Resize => self.set_resize_mode(true),
-            Item::Status => self.toggle_status(),
-            Item::Edit => self.open_editor(),
+            Item::Settings => self.open_editor(),
             Item::Close => return true,
-            Item::Settings => {}
         }
         false
-    }
-
-    /// Escape folds the settings row first, then closes the menu.
-    fn menu_escape(&mut self) {
-        if self.menu.settings_open {
-            self.toggle_settings();
-        } else {
-            self.close_menu();
-        }
     }
 }

@@ -26,9 +26,9 @@ flowchart LR
 
 | Claude Code event | State | Animation |
 |---|---|---|
-| `SessionStart`, `SessionEnd` | `idle` | napping; every minute sliding, a toy car or a ball |
-| `UserPromptSubmit` | `loading` | clapping |
-| `PreToolUse`, `PostToolUse` | `working` | swimming in a hard hat, then thinking, in turn |
+| `SessionStart`, `SessionEnd` | `idle` | napping; every minute (`idle.every`) sliding, a toy car, a ball or waving |
+| `UserPromptSubmit` | `loading` | clapping, then sitting and thinking |
+| `PreToolUse`, `PostToolUse` | `working` | swimming in a hard hat |
 | `PermissionRequest`, `Notification` | `asking` | waving on an ice floe |
 | `Stop` | `completed` | showing off in sunglasses |
 | `StopFailure` | `error` | crying |
@@ -55,9 +55,10 @@ flowchart TB
         seal["seal.rs<br/>sizes, timings, clips,<br/>acts, feed and break scenes, clock"]
         store["store.rs<br/>data folder, state file, placement"]
         status["status.rs<br/>words, colors, auto hide,<br/>break and feed settings, state parsing"]
+        phrases["phrases.rs<br/>English and Thai message sets,<br/>10 lines a state"]
         bubble["bubble.rs<br/>bubble layout, drawing, animation"]
         menu["menu.rs<br/>icon menu layout, drawing, animation"]
-        editor["editor.rs<br/>status editor layout (two columns),<br/>painting, clicks"]
+        editor["editor.rs<br/>settings editor layout (two tabs),<br/>painting, clicks"]
         hooks["hooks.rs<br/>hook files of each agent"]
         anim["anim.rs<br/>easing"]
         gfx["gfx/mod.rs<br/>Canvas, shapes, Strip"]
@@ -102,6 +103,8 @@ flowchart TB
     bubble --> gfx
     menu & editor --> gfx
     editor --> status
+    status & editor --> phrases
+    phrases --> seal
     bubble --> seal
     store --> seal
     store --> status
@@ -159,7 +162,7 @@ flowchart LR
     press -- "hold or move > 4 px" --> drag --> mv["move_to + save placement"]
     press -- "click" --> menu["icon menu"]
     press -- "resize mode" --> rs["set_height + save"]
-    menu --> act["resize / show status /<br/>edit status / quit"]
+    menu --> act["feed / resize /<br/>settings / quit"]
 ```
 
 On Windows each source is a Win32 timer (`TIMER_FRAME`, `TIMER_POLL`, `TIMER_BUBBLE`,
@@ -213,7 +216,7 @@ flowchart LR
     state -- "read" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y height show_status")]
     placement -- "read_placement at start" --> app2
-    editor2["editor Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>words, color.&lt;state&gt;, autohide,<br/>break.times, break.message, feed.message")]
+    editor2["editor Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>words, color.&lt;state&gt;, autohide, idle.every,<br/>break.times, break.message, feed.message")]
     statustxt -- "StatusText::load" --> app2
 ```
 
@@ -228,6 +231,7 @@ All of these files except `settings.json` live in the data folder (`store::data_
 | A state's animations, speed or size | `seal.rs` (`Clip`, `Act`, `act_for`) |
 | The bubble's look or motion | `bubble.rs` |
 | Default words and colors | `status.rs` (`STATES`, `DEFAULT_COLOR`, `DEFAULT_BREAK_MESSAGE`, `DEFAULT_FEED_MESSAGE`) |
+| The English and Thai message sets | `phrases.rs` (`ENGLISH`, `THAI`, `SETS`) |
 | The feed and break scenes, idle's nap length | `seal.rs` (`FEED`, `BREAK`, `REST_MS`, `TURN_MS`) |
 | The icon menu's or the editor's look | `menu.rs` / `editor.rs` |
 | Windows menu / editor windows | `win/menu.rs` / `win/editor.rs` |

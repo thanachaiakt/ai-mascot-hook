@@ -9,7 +9,7 @@ sparkles, heart, bubbles) and lightened toward white as video_poses.py does. The
 a little apart from cell to cell, so each is moved to stand where the first does: its bottom
 on the same row, the middle of its base on the same column.
 
-    assets/gif-poses/<pose>.gif     300 x 300, transparent
+    assets/gif/<pose>.gif     300 x 300, transparent
     assets/<pose>.png               the pet's strip: 260 x 260 frames, 256 colors with alpha
 """
 import sys
@@ -22,7 +22,7 @@ from scipy import ndimage
 from video_poses import GIF, PAD, STRIP, WHITEN, save_gif, whiten
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / 'assets' / 'gif-poses'
+OUT = ROOT / 'assets' / 'gif'
 SIDE = 4                        # cells across and down
 BG = np.array([90, 183, 230], np.float32)   # backdrop blue; the grid lines are a lighter blue
 SHUT = 300                      # px: grid shut in by the pose larger than this is backdrop

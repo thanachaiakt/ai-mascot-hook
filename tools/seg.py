@@ -4,9 +4,9 @@ from scipy import ndimage
 
 BG = np.array([137, 207, 244], np.float32)       # backdrop blue; the grid lines are a lighter blue
 
-# state -> quadrant of the 1280 x 720 clip (x0, y0, x1, y1)
+# pose -> quadrant of the 1280 x 720 clip (x0, y0, x1, y1); the clapping seal is `happy`
 QUAD = {
-    'loading': (0, 0, 640, 360),
+    'happy': (0, 0, 640, 360),
     'working': (620, 0, 1280, 440),     # the swimmer dips below the middle line
     'asking': (0, 340, 640, 720),
     'completed': (640, 360, 1280, 720),

@@ -37,11 +37,12 @@ impl Clip {
     }
 }
 
-pub const LOADING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/loading.frames")), frames: 74, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
 // the swimming seal is drawn floating mid-frame and smaller: bring it to the others' size,
 // its bottom down to where they stand (the window grows past the seal's box to keep the
 // whole swimmer when it reaches an edge)
 pub const WORKING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/working.frames")), frames: 95, interval: 83, zoom: 1.15, pivot: (127.0, 37.0) };
+// the states clip's clapping seal
+pub const HAPPY: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/happy.frames")), frames: 74, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
 pub const ASKING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/asking.frames")), frames: 60, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
 // the states clip's completed quadrant, a napping seal
 pub const NAPPING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/completed.frames")), frames: 86, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
@@ -67,27 +68,27 @@ pub const SALMON: Clip = pose!("salmon", 230);
 
 /// The clips a state plays. With more than one, each plays for at least `TURN_MS` and the
 /// next takes over as it comes back to its first frame, in order. An act with a `rest`
-/// clip plays that instead, and for every `REST_MS` of it one of `clips`, at random, for a
-/// turn.
+/// clip plays that instead, and after each nap (as long as `idle.every` in `status.txt`
+/// says) one of `clips`, at random, for a turn. An `intro` plays once through before any of
+/// them.
 pub struct Act {
     pub clips: &'static [&'static Clip],
     pub rest: Option<&'static Clip>,
+    pub intro: Option<&'static Clip>,
 }
 
 /// The least time one clip of an act plays before the next takes over.
 pub const TURN_MS: u32 = 10_000;
-/// How long a resting seal naps before it wakes to play.
-pub const REST_MS: u32 = 60_000;
 
 // statics, not consts, so each act has one address to tell it by
-static LOADING_ACT: Act = Act { clips: &[&LOADING], rest: None };
-// swimming and thinking in turn
-static WORKING_ACT: Act = Act { clips: &[&WORKING, &THINKING], rest: None };
-static ASKING_ACT: Act = Act { clips: &[&ASKING], rest: None };
-static COMPLETED_ACT: Act = Act { clips: &[&ACTIVE], rest: None };
-static ERROR_ACT: Act = Act { clips: &[&ERROR], rest: None };
+// a clap for the new prompt, then the seal sits and thinks, as the bubble says
+static LOADING_ACT: Act = Act { clips: &[&THINKING], rest: None, intro: Some(&HAPPY) };
+static WORKING_ACT: Act = Act { clips: &[&WORKING], rest: None, intro: None };
+static ASKING_ACT: Act = Act { clips: &[&ASKING], rest: None, intro: None };
+static COMPLETED_ACT: Act = Act { clips: &[&ACTIVE], rest: None, intro: None };
+static ERROR_ACT: Act = Act { clips: &[&ERROR], rest: None, intro: None };
 // the seal naps, and wakes now and then to play
-static IDLE_ACT: Act = Act { clips: &[&SLIDE, &TOY_CAR, &BALL], rest: Some(&NAPPING) };
+static IDLE_ACT: Act = Act { clips: &[&SLIDE, &TOY_CAR, &BALL, &ASKING], rest: Some(&NAPPING), intro: None };
 
 pub fn act_for(state: &str) -> &'static Act {
     match state {
@@ -126,12 +127,14 @@ pub struct Turns {
     played_ms: u32,
     /// a cut-in playing over the act, and which of its clips
     cut_in: Option<(CutIn, usize)>,
+    /// the act's intro is still playing
+    intro: bool,
 }
 
 impl Turns {
     /// An act starts resting, or on its first clip.
     pub fn new(act: &'static Act) -> Turns {
-        Turns { act, at: if act.rest.is_some() { None } else { Some(0) }, played_ms: 0, cut_in: None }
+        Turns { act, at: if act.rest.is_some() { None } else { Some(0) }, played_ms: 0, cut_in: None, intro: act.intro.is_some() }
     }
 
     /// Go on with `act`, from its start, but finish any cut-in first.
@@ -146,6 +149,7 @@ impl Turns {
     pub fn clip(&self) -> &'static Clip {
         match (self.cut_in, self.at, self.act.rest) {
             (Some((seq, i)), _, _) => seq[i].0,
+            (None, _, _) if self.intro => self.act.intro.unwrap_or(self.act.clips[0]),
             (None, Some(i), _) => self.act.clips[i],
             (None, None, rest) => rest.unwrap_or(self.act.clips[0]),
         }
@@ -182,8 +186,9 @@ impl Turns {
         was
     }
 
-    /// The clip has come back to its first frame: true when another takes over.
-    pub fn looped(&mut self) -> bool {
+    /// The clip has come back to its first frame: true when another takes over. A resting
+    /// act naps `rest_ms` between turns at play.
+    pub fn looped(&mut self, rest_ms: u32) -> bool {
         let clip = self.clip();
         self.played_ms += clip.frames as u32 * clip.interval;
         if let Some((seq, i)) = self.cut_in {
@@ -194,10 +199,16 @@ impl Turns {
             self.cut_in = (i + 1 < seq.len()).then_some((seq, i + 1));
             return true;
         }
+        // the intro plays once through, then the act's clips take over
+        if self.intro {
+            self.intro = false;
+            self.played_ms = 0;
+            return true;
+        }
         let n = self.act.clips.len();
         let (due, next) = match (self.at, self.act.rest) {
             // a nap, then a turn at play; a turn at play, then the nap
-            (None, Some(_)) => (REST_MS, Some(random() % n)),
+            (None, Some(_)) => (rest_ms, Some(random() % n)),
             (Some(_), Some(_)) => (TURN_MS, None),
             (Some(i), None) if n > 1 => (TURN_MS, Some((i + 1) % n)),
             _ => return false,
@@ -213,7 +224,7 @@ impl Turns {
 
 /// A random number: each `RandomState` is keyed apart from the last, from a seed the
 /// system picks.
-fn random() -> usize {
+pub fn random() -> usize {
     use std::hash::BuildHasher;
     std::collections::hash_map::RandomState::new().hash_one(()) as usize
 }
@@ -266,5 +277,23 @@ pub fn ripple_period(state: &str) -> f32 {
         "asking" | "break" => 1.2,
         "loading" | "working" => 1.8,
         _ => 0.0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loading_claps_then_thinks() {
+        let mut turns = Turns::new(act_for("loading"));
+        assert!(std::ptr::eq(turns.clip(), &HAPPY));
+        // the clap plays once through, then thinking stays
+        assert!(turns.looped(60_000));
+        assert!(std::ptr::eq(turns.clip(), &THINKING));
+        for _ in 0..5 {
+            assert!(!turns.looped(60_000));
+            assert!(std::ptr::eq(turns.clip(), &THINKING));
+        }
     }
 }

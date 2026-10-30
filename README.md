@@ -3,17 +3,17 @@
 [ภาษาไทย: วิธีติดตั้งและใช้งาน](README.th.md)
 
 A small seal that floats on the Windows or macOS desktop and acts out what Claude Code is doing:
-claps while loading, swims in a hard hat and stops to think while working, waves from an
+claps and then sits and thinks while loading, swims in a hard hat while working, waves from an
 ice floe while asking, shows off in sunglasses when the turn is done, cries when it fails,
-and naps when idle, waking every minute to play. Feed it a salmon from its menu, and set
+and naps when idle, waking every minute (or as often as you set) to play. Feed it a salmon from its menu, and set
 break times for it to ring an alarm clock with your own message.
 
 <p align="center">
-  <img src="assets/gif/loading.gif" width="120" alt="Seal clapping">
+  <img src="assets/gif/thinking.gif" width="120" alt="Seal thinking">
   <img src="assets/gif/working.gif" width="120" alt="Seal swimming in a hard hat">
   <img src="assets/gif/asking.gif" width="120" alt="Seal waving from an ice floe">
-  <img src="assets/gif-poses/active.gif" width="120" alt="Seal in sunglasses">
-  <img src="assets/gif-poses/error.gif" width="120" alt="Seal crying">
+  <img src="assets/gif/active.gif" width="120" alt="Seal in sunglasses">
+  <img src="assets/gif/error.gif" width="120" alt="Seal crying">
   <img src="assets/gif/completed.gif" width="120" alt="Seal napping">
 </p>
 
@@ -65,9 +65,9 @@ the seal on your desktop ◀──(reads the file every 0.4 s)──────
 
 | Claude Code event | State | What the seal does |
 |---|---|---|
-| `SessionStart`, `SessionEnd` | `idle` | naps, and wakes every minute to play |
-| `UserPromptSubmit` | `loading` | claps while thinking |
-| `PreToolUse`, `PostToolUse` | `working` | swims in a hard hat, and stops to think in turn |
+| `SessionStart`, `SessionEnd` | `idle` | naps, and wakes every minute (adjustable) to play |
+| `UserPromptSubmit` | `loading` | claps, then sits and thinks |
+| `PreToolUse`, `PostToolUse` | `working` | swims in a hard hat |
 | `PermissionRequest`, `Notification` (permission, idle, MCP prompts) | `asking` | waves for your attention |
 | `Stop` | `completed` | shows off in sunglasses, turn is done; naps again after 10 s |
 | `StopFailure` (the turn ended on an API error) | `error` | cries |
@@ -128,7 +128,7 @@ Easiest way. The installer is for your user only (no admin prompt) and installs 
    Cursor, GitHub Copilot CLI, Gemini CLI, OpenAI Codex, Qwen Code, Windsurf and Kiro.
    Claude Code and any assistant found on this computer start ticked. Untick all to skip hooks.
 4. **Start at sign-in (optional).** Tick the option in the installer.
-5. **Restart the assistant.** Send it a message: the seal should start clapping.
+5. **Restart the assistant.** Send it a message: the seal should clap, then sit and think.
 
 To remove it, use **Settings > Apps**. That removes the hooks from every assistant (not only
 the ones you ticked) and deletes the seal's settings (`%LOCALAPPDATA%\ai-mascot-hook`) too, so
@@ -163,7 +163,7 @@ Assets also has a plain `.zip` with only the exe, for the steps below.
    (From a clone of the repo, `powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe <path>`
    does the same.)
 4. **Restart Claude Code.** A session that was open before the install does not run the
-   new hooks. Send Claude a message: the seal should start clapping.
+   new hooks. Send Claude a message: the seal should clap, then sit and think.
 
    **Other agents.** Add `--agent` with `cursor`, `copilot` (Copilot CLI), `gemini`, `codex`
    (OpenAI's Codex CLI; ChatGPT on the web has no hooks), `qwen`, `windsurf` or `kiro` to
@@ -200,7 +200,7 @@ Easiest way. One binary works on both chip types.
    what it will add and to which files, asks which AI assistants to hook, sets the seal to
    start at login, and starts it. `--lang en|th`, `--agents claude,cursor` (or `all`, `none`)
    and `--yes` answer those questions up front.
-3. **Restart the assistant.** Send it a message: the seal should start clapping.
+3. **Restart the assistant.** Send it a message: the seal should clap, then sit and think.
 
 `install.sh --uninstall` undoes everything: the hooks of every assistant, the login item, the
 binary and the seal's settings (`--keep` keeps the settings).
@@ -234,7 +234,7 @@ Build it once, about a minute:
    ~/bin/ai-mascot-hook &
    ```
 
-6. **Restart Claude Code**, then send Claude a message: the seal should start clapping.
+6. **Restart Claude Code**, then send Claude a message: the seal should clap, then sit and think.
 7. **Start at login (optional).** Save this as `~/Library/LaunchAgents/com.ai-mascot-hook.plist`
    (with your own path), then run
    `launchctl load ~/Library/LaunchAgents/com.ai-mascot-hook.plist`:
@@ -251,7 +251,7 @@ Build it once, about a minute:
    </plist>
    ```
 
-Everything else works as on Windows: dragging, resizing, the icon menu, the status editor
+Everything else works as on Windows: dragging, resizing, the icon menu, the settings editor
 (its **+** opens the macOS color panel) and the bubble.
 
 ## Using the seal
@@ -264,9 +264,8 @@ Everything else works as on Windows: dragging, resizing, the icon menu, the stat
      editor), then goes back to what it was doing.
   2. arrows (**Resize**): resize mode. Turn the mouse wheel over the seal or drag its corner
      handle; the seal fits anywhere from a 32 x 32 to a 512 x 512 px box. Click the seal when done.
-  3. gear (**Settings**): unfolds a second row with two buttons
-     - speech bubble (**Show status**): show or hide a status bubble ("Working…", "Need your input!", ...)
-     - pencil (**Edit status**): opens the status editor (see below).
+  3. gear (**Settings**): opens the settings editor (see below), where you also show or
+     hide the status bubble ("Working…", "Need your input!", ...)
   4. cross (**Close**): quit
 - At each **break time** (set in the editor) the seal rings an alarm clock for a minute and
   the bubble shows your break message, even with the status bubble off. Click the seal to
@@ -282,20 +281,36 @@ the seal one bubble at a time, floats gently while it is up, bounces when the st
 changes, and fades away when hidden. While Claude is thinking, working or asking, a soft
 ring ripples out of the colored dot.
 
-### The status editor
+### The settings editor
 
-- One text box per state. Type `\n` where the bubble should start a new line.
+Two tabs at the top; changes on both are kept until you press **Save** or **Cancel**.
+
+**Status messages**
+- One text box per state. Put several lines in it, split by `|`, and the bubble picks one
+  at random each time the state or the seal's pose changes. Type `\n` where the bubble
+  should start a new line.
+- **Starter messages** **English** or **ไทย** (Thai) loads a starter set of messages into
+  every box: ten built-in lines per state, clingy and sweet, the seal talking to its Papa
+  (ป๊า in the Thai), written to match what the seal is doing. Edit them as you like; nothing is kept until **Save**.
 - Click a state's name (or its text box) to select it: the seal plays that state's
   animation and the bubble previews its words, so you can see each state as you edit it.
 - **Text color** sets the selected state's color, so every state can have its own
   (eight swatches, or **+** for any color).
-- **Bubble**: **Show status** turns the bubble on or off; **Auto hide** hides it again
-  1–20 seconds after each state change.
-- **Break & Feed**: **Break at** lists the times of day to take a break, such as
-  `12:00, 15:30`; **Break text** is what the bubble says then, and **Fed text** what it
-  says while the seal eats.
-- **Save** (or Enter) keeps the changes in `status.txt`;
-  **Cancel**, × or Escape drops them; **Reset** restores the default words and colors.
+
+**Other settings**
+- **Status bubble**: **Show status** turns on the bubble over the seal that says what the
+  AI is doing. **Auto hide** hides it again 1–60 seconds after it pops up, and it pops up
+  again on the next state change or change of pose; with Auto hide off, it stays up.
+- **Idle**: **Play every** sets how long the idle seal naps before it wakes to play a
+  pose, 10–120 seconds (default 60).
+- **Break**: **Break at** lists the times of day to take a break, such as
+  `12:00, 15:30`; **Break text** is what the bubble says for the minute the alarm clock
+  rings.
+- **Feed**: **Fed text** is what the bubble says while the seal eats the salmon that
+  **Feed** in the menu gives it.
+
+**Save** (or Enter) keeps the changes in `status.txt`; **Cancel**, × or Escape drops them;
+**Reset** restores the default words and colors.
 
 ## Where settings are kept
 
@@ -310,7 +325,7 @@ Everything lives in one folder, and nothing is stored anywhere else (no registry
 |---|---|---|
 | `state` | the current state word (`working`, ...) | the hooks (`--set`) |
 | `placement` | seal position, size, and whether the bubble is shown | the seal, when you move, resize or toggle |
-| `status.txt` | each state's words and color, the auto-hide time, the break times, and the break and feed messages | the status editor's **Save** |
+| `status.txt` | each state's words and color, the auto-hide time, the idle nap time, the break times, and the break and feed messages | the settings editor's **Save** |
 
 `status.txt` has the same plain-text format on both platforms, so you can copy it between
 a Windows PC and a Mac. Deleting a file just resets that setting to its default.
@@ -344,8 +359,8 @@ The hooks themselves live in Claude Code's `~/.claude/settings.json`.
 
 **`Access is denied` when building (Windows).** Windows locks a running exe: quit the seal first.
 
-**No status bubble.** Turn on **Show status** in the Settings row or the editor. With
-**Auto hide** on, the bubble hides itself and returns on the next state change. It also
+**No status bubble.** Turn on **Show status** under **Settings** → **Other settings**. With
+**Auto hide** on, the bubble hides itself and returns on the next state change or change of pose. It also
 hides while the icon menu is open.
 
 ## Build from source
@@ -363,25 +378,26 @@ The result is `target/release/ai-mascot-hook.exe` (Windows) or `target/release/a
 
 Each animation is a frame strip. A state plays one strip, or several in turn: each
 plays for at least 10 s, then the next takes over as it comes back to its first frame.
-The previews below are the animated GIFs from `assets/gif/` and `assets/gif-poses/`
+The previews below are the animated GIFs from `assets/gif/`
 (transparent); click one to open its full frame strip.
 
 | State | Image | What the seal does |
 |---|---|---|
-| `loading` | [<img src="assets/gif/loading.gif" width="120" alt="Loading animation preview">](assets/loading.png) | Claps happily and flaps its flippers while thinking. |
-| `working` | [<img src="assets/gif/working.gif" width="120" alt="Working animation preview">](assets/working.png) [<img src="assets/gif-poses/thinking.gif" width="120" alt="Thinking animation preview">](assets/thinking.png) | Swims and spins in a hard hat, shovel in hand, then sits and thinks, in turn. The swimmer is shown 1.15× larger, since it is drawn smaller than the other seals; the window reaches past the seal's box so the whole swimmer stays in view at the edges and mid-spin. |
+| `loading` | [<img src="assets/gif/happy.gif" width="120" alt="Clapping animation preview">](assets/happy.png) [<img src="assets/gif/thinking.gif" width="120" alt="Thinking animation preview">](assets/thinking.png) | Claps happily once through for the new prompt, then sits with a flipper to its chin and thinks, blinking. |
+| `working` | [<img src="assets/gif/working.gif" width="120" alt="Working animation preview">](assets/working.png) | Swims and spins in a hard hat, shovel in hand. The swimmer is shown 1.15× larger, since it is drawn smaller than the other seals; the window reaches past the seal's box so the whole swimmer stays in view at the edges and mid-spin. |
 | `asking` | [<img src="assets/gif/asking.gif" width="120" alt="Asking animation preview">](assets/asking.png) | Sits on an ice floe and waves to ask for input. |
-| `completed` | [<img src="assets/gif-poses/active.gif" width="120" alt="Completed animation preview">](assets/active.png) | Shows off in sunglasses, sparkling, after the turn is done, for 10 s, then naps as in `idle`. |
-| `error` | [<img src="assets/gif-poses/error.gif" width="120" alt="Error animation preview">](assets/error.png) | Cries into its flippers when the turn ends on an error. |
-| `idle` | [<img src="assets/gif/completed.gif" width="120" alt="Napping animation preview">](assets/completed.png) [<img src="assets/gif-poses/slide.gif" width="120" alt="Sliding animation preview">](assets/slide.png) [<img src="assets/gif-poses/toy-car.gif" width="120" alt="Toy car animation preview">](assets/toy-car.png) [<img src="assets/gif-poses/ball.gif" width="120" alt="Ball animation preview">](assets/ball.png) | Naps under floating zZ; every minute it wakes to slide on its belly or play with a toy car or a ball, one at random, then naps again. |
-| Feed | [<img src="assets/gif-poses/salmon.gif" width="120" alt="Salmon animation preview">](assets/salmon.png) | Hugs and eats a salmon bite by bite, licks its lips, waves, and glows with a heart and sparkles. |
-| Break | [<img src="assets/gif-poses/break-time.gif" width="120" alt="Break time animation preview">](assets/break-time.png) | The alarm clock rings: time for a break. |
+| `completed` | [<img src="assets/gif/active.gif" width="120" alt="Completed animation preview">](assets/active.png) | Shows off in sunglasses, sparkling, after the turn is done, for 10 s, then naps as in `idle`. |
+| `error` | [<img src="assets/gif/error.gif" width="120" alt="Error animation preview">](assets/error.png) | Cries into its flippers when the turn ends on an error. |
+| `idle` | [<img src="assets/gif/completed.gif" width="120" alt="Napping animation preview">](assets/completed.png) [<img src="assets/gif/slide.gif" width="120" alt="Sliding animation preview">](assets/slide.png) [<img src="assets/gif/toy-car.gif" width="120" alt="Toy car animation preview">](assets/toy-car.png) [<img src="assets/gif/ball.gif" width="120" alt="Ball animation preview">](assets/ball.png) [<img src="assets/gif/asking.gif" width="120" alt="Waving animation preview">](assets/asking.png) | Naps under floating zZ; every minute it wakes to slide on its belly, play with a toy car or a ball, or wave from its ice floe, one at random, then naps again. |
+| Feed | [<img src="assets/gif/salmon.gif" width="120" alt="Salmon animation preview">](assets/salmon.png) | Hugs and eats a salmon bite by bite, licks its lips, waves, and glows with a heart and sparkles. |
+| Break | [<img src="assets/gif/break-time.gif" width="120" alt="Break time animation preview">](assets/break-time.png) | The alarm clock rings: time for a break. |
 
 An unknown or missing state is idle. The first four strips are
 260 x 260 px (1:1) per frame, cut from the 2 x 2 clip `art/states.mp4` (not kept in the repository; one
 state per quarter) by `tools/video_states.py`: it cuts each seal out of the blue
 grid backdrop, trims it to a seamless loop, crops it square, and writes the strip
-and a 300 x 300 GIF (`assets/gif/<state>.gif`). Asking loops only the
+and a 300 x 300 GIF (`assets/gif/<state>.gif`). The clapping seal is saved as `happy`
+(it also makes the program's icon). Asking loops only the
 part where the seal waves its right flipper; the clip's left-flipper wave draws a
 third flipper. The swimmer's tail, lost for two frames mid-spin, is put back
 from a neighbouring frame. The program keeps the strips as palette indices (1 byte a
@@ -390,7 +406,7 @@ the frame's aspect.
 
 The other strips (`thinking`, `active`, `error`, and the idle poses) are cut the same
 way from a 4 x 3 clip of sticker poses by `tools/video_poses.py <clip.mp4>`, which also
-writes `assets/gif-poses/<pose>.gif`. Thinking keeps the seal alone: the "?" and zZ marks
+writes `assets/gif/<pose>.gif`. Thinking keeps the seal alone: the "?" and zZ marks
 floating by its head are taken out, and where they touch or cross the head it is painted
 over in the seal's own colors (its edge redrawn round, white rim then navy outline, and
 strokes on the fur filled with fur). Error's tears are the backdrop's own blue, so only
