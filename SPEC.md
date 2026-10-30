@@ -316,7 +316,10 @@ cargo build --release
 ```
 
 The resulting executable is `target/release/ai-mascot-hook.exe` on Windows and
-`target/release/ai-mascot-hook` on macOS. A Windows shortcut to it may be placed in
+`target/release/ai-mascot-hook` on macOS. The seal's art is in `ai-mascot-hook.frames`,
+which must sit beside the executable: without it, or with one from another build, the seal
+says so and does not start (`--set` and the other command-line options do not need it).
+A Windows shortcut to it may be placed in
 `shell:startup` to run ai-mascot-hook at sign-in; on macOS a LaunchAgent can start it
 (see the README).
 

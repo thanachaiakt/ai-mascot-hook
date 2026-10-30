@@ -259,7 +259,7 @@ impl Image {
 // ---- frame strips ---------------------------------------------------------------
 
 /// An animation kept as 8-bit palette indices. The frames stay compressed, one PNG each
-/// in the exe (see `build.rs`); only the frame on screen is unpacked, 1 byte a pixel, and
+/// in the frames file (see `build.rs`); only the frame on screen is unpacked, 1 byte a pixel, and
 /// scaled when drawn. A whole strip unpacked would take megabytes.
 pub struct Strip {
     pngs: Vec<&'static [u8]>,

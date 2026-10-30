@@ -3,6 +3,7 @@
 use std::time::{Duration, SystemTime};
 
 use crate::gfx::Strip;
+use crate::store::strip_frames;
 
 /// The frames' own size: every size the seal takes keeps this aspect.
 pub const FRAME_W: i32 = 260;
@@ -21,8 +22,9 @@ pub const DRAG_SLOP: i32 = 4;
 
 /// One animation: its frames, frame count and milliseconds per frame.
 pub struct Clip {
-    /// the frame strip in `assets/`, cut by `build.rs` into one PNG per frame
-    pub png: &'static [u8],
+    /// the frame strip's name in `assets/`; `build.rs` cuts it into one PNG per frame, kept
+    /// in the frames file
+    pub name: &'static str,
     pub frames: usize,
     pub interval: u32,
     /// enlargement about a point of the frame, so the seal stands as big, and where, it
@@ -33,25 +35,25 @@ pub struct Clip {
 
 impl Clip {
     pub fn strip(&self) -> Strip {
-        Strip::decode(self.png, self.frames).zoomed(self.zoom, self.pivot)
+        Strip::decode(strip_frames(self.name), self.frames).zoomed(self.zoom, self.pivot)
     }
 }
 
 // the swimming seal is drawn floating mid-frame and smaller: bring it to the others' size,
 // its bottom down to where they stand (the window grows past the seal's box to keep the
 // whole swimmer when it reaches an edge)
-pub const WORKING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/working.frames")), frames: 95, interval: 83, zoom: 1.15, pivot: (127.0, 37.0) };
+pub const WORKING: Clip = Clip { name: "working", frames: 95, interval: 83, zoom: 1.15, pivot: (127.0, 37.0) };
 // the states clip's clapping seal
-pub const HAPPY: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/happy.frames")), frames: 74, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
-pub const ASKING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/asking.frames")), frames: 60, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
+pub const HAPPY: Clip = Clip { name: "happy", frames: 74, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
+pub const ASKING: Clip = Clip { name: "asking", frames: 60, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
 // the states clip's completed quadrant, a napping seal
-pub const NAPPING: Clip = Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/completed.frames")), frames: 86, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
+pub const NAPPING: Clip = Clip { name: "completed", frames: 86, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) };
 
 /// A pose cut from the poses clip by `tools/video_poses.py`, or from a clip of its own by
 /// `tools/clip_pose.py`, every 2nd frame at 24 fps.
 macro_rules! pose {
     ($name:literal, $frames:literal) => {
-        Clip { png: include_bytes!(concat!(env!("OUT_DIR"), "/", $name, ".frames")), frames: $frames, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) }
+        Clip { name: $name, frames: $frames, interval: 83, zoom: 1.0, pivot: (0.0, 0.0) }
     };
 }
 

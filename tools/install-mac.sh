@@ -1,5 +1,6 @@
 #!/bin/bash
-# Installs ai-mascot-hook from the unpacked release archive: copies the binary to ~/bin,
+# Installs ai-mascot-hook from the unpacked release archive: copies the binary and its frames
+# file (the seal's art) to ~/bin,
 # points the hooks of the AI assistants you pick at it, starts it at login and starts it now.
 #   ./install.sh                   install or upgrade; asks the language and which assistants
 #   ./install.sh --yes             the same without asking (English unless --lang th or a Thai
@@ -8,11 +9,13 @@
 #   ./install.sh --agents LIST     which assistants to hook: claude,cursor,copilot,gemini,codex,
 #                                  qwen,windsurf,kiro (comma separated), all, or none
 #   ./install.sh --uninstall       remove the hooks of every assistant, the login item, the
-#                                  binary and the seal's settings (--keep keeps the settings)
+#                                  binary, its frames and the seal's settings (--keep keeps
+#                                  the settings)
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 bin="$HOME/bin/ai-mascot-hook"
+frames="$bin.frames"
 plist="$HOME/Library/LaunchAgents/com.ai-mascot-hook.plist"
 data="$HOME/Library/Application Support/ai-mascot-hook"
 
@@ -98,7 +101,7 @@ if [ "$mode" = uninstall ]; then
     stop_seal
     # every assistant that has our hooks, not only the ones chosen at install time
     [ -x "$bin" ] && "$bin" --remove-hooks --agent all
-    rm -f "$plist" "$bin"
+    rm -f "$plist" "$bin" "$frames"
     # the seal's own settings (placement, status.txt, state) sit outside the binary's folder
     if [ "$keep" = y ]; then
         say kept "$data"
@@ -127,6 +130,7 @@ fi
 stop_seal
 mkdir -p "$HOME/bin" "$HOME/Library/LaunchAgents"
 cp "$here/ai-mascot-hook" "$bin"
+cp "$here/ai-mascot-hook.frames" "$frames"
 chmod +x "$bin"
 # the binary is not notarized: a browser download marks it, and Gatekeeper would block it
 xattr -d com.apple.quarantine "$bin" 2>/dev/null || true

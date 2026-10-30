@@ -67,9 +67,9 @@ Where the cost comes from:
 - **Status bubble:** while it moves (pops in, bounces, fades) it redraws every 15 ms,
   otherwise every 33 ms. Turning the bubble off saves this.
 - **Memory:** `build.rs` cuts each strip in `assets/` into one small PNG per frame, and
-  those are built into the exe (about 10.5 MB in all for the 12 strips; the exe is about
-  11.2 MB). Embedded data
-  is mapped from the file and not counted as the app's own memory. Only the frame on
+  those go into `ai-mascot-hook.frames` beside the exe (about 12.5 MB for the 12 strips;
+  the exe is under 1 MB). The seal maps that file, so it is read from disk as needed and
+  not counted as the app's own memory, as when the frames were in the exe. Only the frame on
   screen is unpacked, one byte a pixel (260 × 260, about 66 KB), and the buffers are
   reused from frame to frame. Unpacking a whole strip up front, as earlier versions did,
   took 6–8 MB per clip and left about 25 MB of freed buffers that macOS's malloc kept; on

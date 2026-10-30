@@ -60,6 +60,15 @@ fn main() {
         Some("--remove-hooks") => std::process::exit(hooks::run(false, None, flag(&args, "--agent"))),
         _ => {}
     }
+    // the art is in a file beside the exe; a seal without it would be an empty window
+    if let Err(e) = store::frames_file() {
+        let message = format!("The seal cannot start: {e}");
+        #[cfg(windows)]
+        win::alert(&message);
+        #[cfg(not(windows))]
+        eprintln!("ai-mascot-hook: {message}");
+        std::process::exit(1);
+    }
     #[cfg(windows)]
     win::run();
     #[cfg(target_os = "macos")]

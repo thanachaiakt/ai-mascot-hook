@@ -597,6 +597,13 @@ unsafe fn layered_window(class: &str, proc_: WNDPROC, ex_style: u32) -> HWND {
     )
 }
 
+/// Say `text` in a message box, for an error that stops the seal before it has a window.
+pub fn alert(text: &str) {
+    unsafe {
+        MessageBoxW(null_mut(), wide(text).as_ptr(), wide("ai-mascot-hook").as_ptr(), MB_ICONERROR | MB_OK);
+    }
+}
+
 pub fn run() {
     unsafe {
         // one seal at a time

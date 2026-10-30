@@ -167,8 +167,8 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    png["assets/*.png<br/>แถบภาพ (PNG แบบ palette)"] -- "build.rs<br/>PNG ทีละเฟรม" --> frames["$OUT_DIR/*.frames<br/>(ฝังใน exe)"]
-    frames -- "Strip::decode" --> strip["Strip<br/>เฟรมที่ยังบีบอัดอยู่"]
+    png["assets/*.png<br/>แถบภาพ (PNG แบบ palette)"] -- "build.rs<br/>PNG ทีละเฟรม" --> frames["ai-mascot-hook.frames<br/>(ข้าง exe, map เข้าหน่วยความจำ)"]
+    frames -- "store::strip_frames<br/>Strip::decode" --> strip["Strip<br/>เฟรมที่ยังบีบอัดอยู่"]
     strip -- "Strip::zoomed<br/>(working ขยาย 1.15 เท่า ขยายกรอบตาม)" --> strip2["Strip + ระยะที่ขยาย"]
     strip2 -- "Strip::draw<br/>ถอดหนึ่งเฟรม ย่อขยายเท่าขนาดแมวน้ำ" --> mc["Canvas mc"]
     mc -- "โหมดปรับขนาด:<br/>กรอบ + ปุ่มมุม" --> mc

@@ -65,6 +65,8 @@ Name: "startup"; Description: "{cm:TaskStartup}"; GroupDescription: "{cm:TaskSta
 
 [Files]
 Source: "..\target\release\ai-mascot-hook.exe"; DestDir: "{app}"; Flags: ignoreversion
+; The seal's art, which build.rs keeps out of the exe; the seal will not start without it
+Source: "..\target\release\ai-mascot-hook.frames"; DestDir: "{app}"; Flags: ignoreversion
 ; The script turns a path with spaces (a user name like "Jane Doe") into its 8.3 short form,
 ; which --install-hooks refuses to guess
 Source: "..\tools\install-hooks.ps1"; DestDir: "{app}"; Flags: ignoreversion

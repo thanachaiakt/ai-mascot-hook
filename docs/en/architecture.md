@@ -173,8 +173,8 @@ On Windows each source is a Win32 timer (`TIMER_FRAME`, `TIMER_POLL`, `TIMER_BUB
 
 ```mermaid
 flowchart LR
-    png["assets/*.png<br/>frame strip (palette PNG)"] -- "build.rs<br/>one PNG per frame" --> frames["$OUT_DIR/*.frames<br/>(in the exe)"]
-    frames -- "Strip::decode" --> strip["Strip<br/>compressed frames"]
+    png["assets/*.png<br/>frame strip (palette PNG)"] -- "build.rs<br/>one PNG per frame" --> frames["ai-mascot-hook.frames<br/>(beside the exe, mapped)"]
+    frames -- "store::strip_frames<br/>Strip::decode" --> strip["Strip<br/>compressed frames"]
     strip -- "Strip::zoomed<br/>(working: 1.15x, frames grow)" --> strip2["Strip + pad"]
     strip2 -- "Strip::draw<br/>unpack one frame, scale to seal size" --> mc["Canvas mc"]
     mc -- "resize mode:<br/>frame + handle" --> mc

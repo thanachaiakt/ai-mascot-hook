@@ -1,9 +1,17 @@
 //! Cut each frame strip in `assets/` into one small PNG per frame, so the running seal can
 //! unpack just the frame it shows instead of holding a whole strip (megabytes) in memory.
 //!
-//! The strips are 8-bit palette PNGs of square frames side by side. Each becomes
-//! `$OUT_DIR/<name>.frames`: the frame count and each frame's length (u32, little endian),
-//! then the frames' PNGs back to back, all sharing the strip's palette.
+//! The strips are 8-bit palette PNGs of square frames side by side. Each becomes a blob: the
+//! frame count and each frame's length (u32, little endian), then the frames' PNGs back to
+//! back, all sharing the strip's palette.
+//!
+//! The blobs go into one file, `ai-mascot-hook.frames`, written beside the exe in
+//! `target/<profile>/` (the installers ship it from there): `AMHF`, the build's id (u64),
+//! the strip count (u32), each strip's offset and length (u32 pairs), then the blobs. They
+//! are kept out of the exe because an exe that is nearly all compressed data looks packed to
+//! antivirus models; CrowdStrike Falcon removed 0.1.9's exe, 96% frames, as it installed.
+//! `$OUT_DIR/frames.rs` gives the exe the id and the strips' order, so it can tell a frames
+//! file from another build.
 
 use std::env;
 use std::fs::{self, File};
@@ -30,6 +38,7 @@ fn main() {
             assert!(env::var_os("CI").is_none(), "exe icon: {e}");
         }
     }
+    let mut blobs = Vec::with_capacity(STRIPS.len());
     for name in STRIPS {
         let path = format!("assets/{name}.png");
         println!("cargo:rerun-if-changed={path}");
@@ -73,6 +82,34 @@ fn main() {
         for png in &pngs {
             blob.extend(png);
         }
-        fs::write(out.join(format!("{name}.frames")), blob).expect("frames written");
+        blobs.push(blob);
     }
+
+    // FNV-1a over every blob: equal ids mean the same frames, in the same order
+    let mut id: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in blobs.iter().flatten() {
+        id = (id ^ *byte as u64).wrapping_mul(0x100_0000_01b3);
+    }
+    let mut file = Vec::new();
+    file.extend(b"AMHF");
+    file.extend(id.to_le_bytes());
+    file.extend((blobs.len() as u32).to_le_bytes());
+    let mut at = file.len() + blobs.len() * 8;
+    for blob in &blobs {
+        file.extend((at as u32).to_le_bytes());
+        file.extend((blob.len() as u32).to_le_bytes());
+        at += blob.len();
+    }
+    for blob in &blobs {
+        file.extend(blob);
+    }
+    fs::write(out.join("ai-mascot-hook.frames"), &file).expect("frames file written");
+    // $OUT_DIR is target/<profile>/build/<package>-<hash>/out, and the exe lands in target/<profile>
+    let profile_dir = out.ancestors().nth(3).filter(|_| out.ancestors().nth(2).and_then(|d| d.file_name()) == Some("build".as_ref()));
+    if let Some(dir) = profile_dir {
+        fs::write(dir.join("ai-mascot-hook.frames"), &file).expect("frames file copied beside the exe");
+    }
+    let names = STRIPS.map(|n| format!("{n:?}")).join(", ");
+    let rs = format!("pub const FRAMES_ID: u64 = {id:#018x};\npub const STRIP_NAMES: [&str; {}] = [{names}];\n", STRIPS.len());
+    fs::write(out.join("frames.rs"), rs).expect("frames.rs written");
 }

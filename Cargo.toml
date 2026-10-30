@@ -1,6 +1,6 @@
 [package]
 name = "ai-mascot-hook"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 description = "A tiny desktop seal that shows what Claude Code is doing"
 
@@ -23,6 +23,8 @@ windows-sys = { version = "0.59", features = [
     "Win32_System_SystemInformation",
     "Win32_System_Threading",
     "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Memory",
     "Win32_UI_Controls",
     "Win32_UI_Controls_Dialogs",
     "Win32_UI_HiDpi",

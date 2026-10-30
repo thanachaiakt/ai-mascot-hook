@@ -44,7 +44,7 @@ jobs:
           }
           & $iscc /DAppVersion=${{ steps.version.outputs.version }} installer\windows.iss
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          Compress-Archive target\release\ai-mascot-hook.exe target\installer\ai-mascot-hook-${{ steps.version.outputs.version }}-windows-x64.zip
+          Compress-Archive target\release\ai-mascot-hook.exe, target\release\ai-mascot-hook.frames target\installer\ai-mascot-hook-${{ steps.version.outputs.version }}-windows-x64.zip
 
       - uses: actions/upload-artifact@v7
         with:
@@ -74,6 +74,8 @@ jobs:
             target/x86_64-apple-darwin/release/ai-mascot-hook
           # Apple silicon refuses to run a binary with no signature at all; ad hoc is enough
           codesign --force --sign - dist/$name/ai-mascot-hook
+          # the art is the same for both architectures
+          cp target/aarch64-apple-darwin/release/ai-mascot-hook.frames dist/$name/
           cp tools/install-mac.sh dist/$name/install.sh
           chmod +x dist/$name/install.sh dist/$name/ai-mascot-hook
           tar -C dist -czf dist/$name.tar.gz $name

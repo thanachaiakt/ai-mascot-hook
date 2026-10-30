@@ -139,7 +139,7 @@ Claude Code ไม่บังคับ (ถ้าไม่มี แมวน�
 
 ถ้าจะอัปเดต ให้รัน `setup.exe` รุ่นใหม่ทับของเดิมได้เลย (บน Mac รัน `install.sh` ซ้ำ) ตัวติดตั้งจะบอกว่า
 อัปเดตจากรุ่นไหน เก็บการตั้งค่าและ hook ไว้ครบ แล้วเปิดแมวน้ำใหม่ให้
-ใน Assets มีไฟล์ `.zip` ที่มีแค่ exe สำหรับติดตั้งเองตามขั้นตอนด้านล่างด้วย
+ใน Assets มีไฟล์ `.zip` ที่มีแค่ exe กับ `ai-mascot-hook.frames` สำหรับติดตั้งเองตามขั้นตอนด้านล่างด้วย
 
 ### Windows ติดตั้งเอง
 
@@ -150,7 +150,8 @@ Claude Code ไม่บังคับ (ถ้าไม่มี แมวน�
    cargo build --release
    ```
 
-   จากนั้น copy `target\release\ai-mascot-hook.exe` ไปวางในโฟลเดอร์ที่จะเก็บถาวร
+   จากนั้น copy `target\release\ai-mascot-hook.exe` และ `target\release\ai-mascot-hook.frames`
+   (ภาพของแมวน้ำ ต้องวางคู่กับ exe) ไปวางในโฟลเดอร์ที่จะเก็บถาวร
    และ **path ต้องไม่มีช่องว่าง** เช่น `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`
    ไม่ควรวางไว้ใน Downloads เพราะ hook จะเรียกไฟล์จาก path นี้ตลอด ถ้าย้ายทีหลัง hook จะใช้ไม่ได้
 2. **เปิดแมวน้ำ** ดับเบิลคลิก `ai-mascot-hook.exe` แมวน้ำจะขึ้นบนหน้าจอ
@@ -221,7 +222,7 @@ build เองครั้งเดียว ประมาณ 1 นาที
 3. **ย้ายโปรแกรมไปไว้ที่ถาวร** เพราะ hook เรียกโปรแกรมตาม path
 
    ```bash
-   mkdir -p ~/bin && cp target/release/ai-mascot-hook ~/bin/
+   mkdir -p ~/bin && cp target/release/ai-mascot-hook target/release/ai-mascot-hook.frames ~/bin/
    ```
 
 4. **ติดตั้ง hook** (รันจากไฟล์ที่ copy ไปไว้)
@@ -384,7 +385,7 @@ Windows ล็อกไฟล์ exe ที่กำลังรันอยู�
 ## Build เอง
 
 ต้องมี Rust (stable) แล้วรัน `cargo build --release` ได้ไฟล์ `target\release\ai-mascot-hook.exe` (Windows)
-หรือ `target/release/ai-mascot-hook` (macOS)
+หรือ `target/release/ai-mascot-hook` (macOS) พร้อมภาพของแมวน้ำในไฟล์ `ai-mascot-hook.frames` ข้างกัน
 
 Build เสร็จแล้วโปรแกรมทำงานได้ทีละตัวเท่านั้น
 

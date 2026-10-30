@@ -142,7 +142,8 @@ nothing is left behind except the `.bak-<time>` copies of the files it edited.
 
 To update, run the newer `setup.exe` over the old install (or `install.sh` again on a Mac): it
 says which version it is replacing, keeps your settings and hooks, and restarts the seal.
-Assets also has a plain `.zip` with only the exe, for the steps below.
+Assets also has a plain `.zip` with only the exe and its `ai-mascot-hook.frames`, for the
+steps below.
 
 ### Windows by hand
 
@@ -153,7 +154,8 @@ Assets also has a plain `.zip` with only the exe, for the steps below.
    cargo build --release
    ```
 
-   Copy `target\release\ai-mascot-hook.exe` to a folder you will keep, with **no spaces in
+   Copy `target\release\ai-mascot-hook.exe` and `target\release\ai-mascot-hook.frames` (the
+   seal's art, which must sit beside the exe) to a folder you will keep, with **no spaces in
    the path**, for example `C:\Tools\ai-mascot-hook\ai-mascot-hook.exe`. Not Downloads: the
    hooks run the exe at exactly this path, and moving it later breaks them.
 2. **Start the seal.** Double-click the exe. The seal appears on the screen.
@@ -225,7 +227,7 @@ Build it once, about a minute:
 3. **Put the binary somewhere permanent**, since the hooks run it by path:
 
    ```bash
-   mkdir -p ~/bin && cp target/release/ai-mascot-hook ~/bin/
+   mkdir -p ~/bin && cp target/release/ai-mascot-hook target/release/ai-mascot-hook.frames ~/bin/
    ```
 
 4. **Install the hooks** (run it from the place you copied the binary to):
@@ -379,7 +381,7 @@ cargo build --release
 ```
 
 The result is `target/release/ai-mascot-hook.exe` (Windows) or `target/release/ai-mascot-hook`
-(macOS). Only one seal runs at a time.
+(macOS), with the seal's art beside it in `ai-mascot-hook.frames`. Only one seal runs at a time.
 
 ## The art
 

@@ -36,8 +36,9 @@ Per platform:
   `menu.rs` (icon menu window), `editor.rs` (editor window, EDIT boxes, color dialog).
 - `src/mac/`: AppKit app (objc2), laid out the same way: `menu.rs` (icon menu panel),
   `editor.rs` (editor panel, NSTextFields, NSColorPanel).
-- `assets/`: frame strips. `build.rs` cuts each into one PNG per frame, embedded with
-  `include_bytes!`, so only the frame on screen is unpacked. `tools/`: art and hook scripts
+- `assets/`: frame strips. `build.rs` cuts each into one PNG per frame, packed into
+  `ai-mascot-hook.frames` beside the exe (kept out of the exe so antivirus does not read it
+  as packed); `store::frames_file` maps it, so only the frame on screen is unpacked. `tools/`: art and hook scripts
   (`video_states.py` and `video_poses.py` cut the strips from their clips, `clip_pose.py`
   cuts the salmon's from a clip of its own, `sheet_pose.py` cuts a pose from a 4 x 4 sprite
   sheet, `render_ui.py`
