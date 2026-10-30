@@ -3,7 +3,8 @@
 //! turned into a `CGImage` for a window's layer to show.
 
 use std::ffi::c_void;
-use std::ptr::{null_mut, NonNull};
+use std::ptr::{null, null_mut, NonNull};
+use std::sync::Mutex;
 
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
@@ -11,7 +12,7 @@ use objc2_app_kit::{
     NSColor, NSFont, NSFontAttributeName, NSFontWeightBold, NSFontWeightRegular, NSFontWeightSemibold, NSForegroundColorAttributeName, NSGraphicsContext, NSStringDrawing,
 };
 use objc2_core_foundation::{CFRetained, CGPoint, CGRect, CGSize};
-use objc2_core_graphics::{CGBitmapContextCreateImage, CGColorSpace, CGContext, CGImage};
+use objc2_core_graphics::{kCGColorSpaceSRGB, CGBitmapContextCreateImage, CGBitmapInfo, CGColorRenderingIntent, CGColorSpace, CGContext, CGDataProvider, CGImage};
 use objc2_foundation::{NSDictionary, NSString};
 
 use super::{Align, Canvas, Rgba};
@@ -67,7 +68,9 @@ impl Canvas {
             self.bits = self.sys.buf.as_mut_ptr();
             self.w = w;
             self.h = h;
-            let space = CGColorSpace::new_device_rgb();
+            // sRGB, as the windows are (see `mac::panel`): an image in any other space is
+            // converted pixel by pixel on the CPU each time a layer is given it
+            let space = CGColorSpace::with_name(Some(unsafe { kCGColorSpaceSRGB }));
             let ctx = unsafe { CGBitmapContextCreate(self.bits as *mut c_void, w as usize, h as usize, 8, (w * 4) as usize, space.as_deref(), BGRA_PREMULTIPLIED) };
             self.sys.ctx = ctx.map(|c| unsafe { CFRetained::from_raw(c) });
             if let Some(ctx) = &self.sys.ctx {
@@ -115,6 +118,38 @@ impl Canvas {
         gc.flushGraphics();
         NSGraphicsContext::restoreGraphicsState_class();
     }
+}
+
+/// Pixel buffers whose images nothing shows any more, kept to be written again: a new buffer
+/// each frame costs the kernel a page fault for each of its pages.
+static SPARE: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
+
+/// Takes back the buffer of an image `bgra_image` made, once the image is let go of, which
+/// Core Animation may do on a thread of its own.
+unsafe extern "C-unwind" fn give_back(info: *mut c_void, _data: NonNull<c_void>, _size: usize) {
+    let buf = unsafe { Box::from_raw(info as *mut Vec<u8>) };
+    if let Ok(mut spare) = SPARE.lock() {
+        // one image is on screen and one on its way: a few spare are plenty
+        if spare.len() < 4 {
+            spare.push(*buf);
+        }
+    }
+}
+
+/// An sRGB image of `w` x `h` premultiplied BGRA pixels, top row first, written by `fill`.
+/// Unlike `Canvas::image` it copies nothing: the image keeps the buffer while it is shown.
+pub fn bgra_image(w: usize, h: usize, fill: impl FnOnce(&mut [u8])) -> Option<CFRetained<CGImage>> {
+    let mut buf = SPARE.lock().ok().and_then(|mut spare| spare.pop()).unwrap_or_default();
+    buf.resize(w * h * 4, 0);
+    fill(&mut buf);
+    let (data, len) = (buf.as_ptr() as *const c_void, buf.len());
+    let info = Box::into_raw(Box::new(buf)) as *mut c_void;
+    // should this fail, the buffer is left alone rather than freed while CoreGraphics
+    // might yet free it too
+    let provider = unsafe { CGDataProvider::with_data(info, data, len, Some(give_back)) }?;
+    let space = CGColorSpace::with_name(Some(unsafe { kCGColorSpaceSRGB }));
+    let rgba = CGBitmapInfo(BGRA_PREMULTIPLIED);
+    unsafe { CGImage::new(w, h, 8, 32, w * 4, space.as_deref(), rgba, Some(&provider), null(), false, CGColorRenderingIntent::RenderingIntentDefault) }
 }
 
 fn attributes(font: Font, color: Rgba) -> Retained<NSDictionary<objc2_foundation::NSAttributedStringKey, AnyObject>> {

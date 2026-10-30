@@ -22,7 +22,8 @@ Shared by both platforms:
 - `src/phrases.rs`: the English and Thai message sets the editor's **Starter messages** buttons
   put in the boxes (ten lines a state, split by `|`), and the random pick of a line.
 - `src/bubble.rs`: lays out, draws and animates the status bubble and the size readout.
-  Platforms only show its canvases.
+  Windows shows its composited canvas; the Mac shows its parts as Core Animation layers
+  and takes only `Bubble::pose` from it, so the float and ripple run on the GPU.
 - `src/menu.rs`, `src/editor.rs`: the icon menu's and the settings editor's layout,
   drawing and hit-testing, shared the same way. The editor's text boxes are native.
 - `src/hooks.rs`: edits the hook files of Claude Code, Cursor, Copilot CLI, Gemini CLI, Codex, Qwen Code, Windsurf and Kiro (`--agent`). Each agent's events are a `Plan`; add an agent as an `Agent` variant, its plan and its file, plus its box in `installer/windows.iss` and `Thai.isl`'s file list.

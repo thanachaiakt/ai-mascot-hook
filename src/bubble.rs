@@ -29,7 +29,9 @@ pub struct Content<'a> {
     pub key: &'a str,
 }
 
-/// What a frame of the bubble needs from its platform.
+/// What a frame of the bubble needs from its platform, when the platform has `Bubble::frame`
+/// draw it whole.
+#[cfg_attr(not(windows), allow(dead_code))]
 pub enum Frame {
     /// take the bubble off screen; no more frames until it is shown again
     Hidden,
@@ -38,13 +40,46 @@ pub enum Frame {
     Shown { x: i32, y: i32, alpha: u8, moving: bool },
 }
 
+/// Where the bubble's animation is at one moment.
+pub struct Pose {
+    pub alpha: u8,
+    /// the box's scale about `Bubble::anchor`, its bounce included
+    pub body: f32,
+    /// the big and the small round bubble's scales about their centers
+    pub tails: [f32; 2],
+    /// still popping, bouncing or fading, which wants frames at ~60 a second; settled, only
+    /// the float and the ripple move
+    pub moving: bool,
+}
+
+/// The float: each part sways this many seconds a round, the round bubbles a beat behind
+/// the box (the lags, in radians).
+pub const FLOAT_PERIOD: f32 = 2.8;
+pub const FLOAT_LAGS: [f32; 3] = [0.0, 0.9, 1.8];
+
+/// How far the float sways each way, in pixels.
+pub fn sway(ui: f32) -> f32 {
+    2.0 * ui
+}
+
+/// The ripple's ring at `phase` (0 .. 1) of its round, for a dot of radius `r`: its radius
+/// and its opacity (0 .. 1).
+pub fn ripple(phase: f32, r: f32) -> (f32, f32) {
+    (r * 2.0 + r * 1.6 * ease_out_cubic(phase), (1.0 - phase).powi(2) * 170.0 / 255.0)
+}
+
+/// The ripple ring's width, in pixels.
+pub fn ripple_width(ui: f32) -> f32 {
+    1.4 * ui
+}
+
 pub struct Bubble {
     /// the box as drawn, at full size
-    drawn: Canvas,
+    pub drawn: Canvas,
     /// the bubble as shown this frame
     pub shown: Canvas,
     /// the tail's two round bubbles, each drawn once to move on its own
-    tails: [Canvas; 2],
+    pub tails: [Canvas; 2],
     /// the size readout
     pub tag: Canvas,
     font: Font,
@@ -58,12 +93,12 @@ pub struct Bubble {
     key: String,
     /// where the drawing sits on screen, and the point of the box nearest the seal, which
     /// it grows out of
-    at: (i32, i32),
-    anchor: (f32, f32),
+    pub at: (i32, i32),
+    pub anchor: (f32, f32),
     /// the round bubbles' drawings: top-left in the drawing, and the distance to their centers
-    tail: [(f32, f32, f32); 2],
+    pub tail: [(f32, f32, f32); 2],
     /// the dot: center, radius, color, and seconds per ripple (0 for none)
-    dot: Option<(f32, f32, f32, Rgba, f32)>,
+    pub dot: Option<(f32, f32, f32, Rgba, f32)>,
     last: Instant,
     clock: Instant,
 }
@@ -171,7 +206,7 @@ impl Bubble {
         if self.appear > 0.0 && self.key != content.key {
             self.pop = 0.0;
         }
-        if !self.up && self.appear <= 0.0 {
+        if (!self.up && self.appear <= 0.0) || self.settled() {
             self.last = Instant::now();
         }
         self.up = true;
@@ -183,20 +218,27 @@ impl Bubble {
 
     /// Set the bubble on its way out.
     pub fn hide(&mut self) {
+        if self.settled() {
+            self.last = Instant::now();
+        }
         self.up = false;
     }
 
-    /// Draw the bubble as it is at this moment of its animation into `shown`. It comes out
-    /// of the seal one bubble at a time, the small round one first, then the big one, then
-    /// the box; once up, the box and the two round bubbles float smoothly, a beat apart.
-    pub fn frame(&mut self, ui: f32) -> Frame {
+    /// Up and done moving: a platform may stop asking for frames until it is shown or
+    /// hidden again, so the time since the last frame says nothing.
+    fn settled(&self) -> bool {
+        self.up && self.appear >= 1.0 && self.pop >= 1.0
+    }
+
+    /// Step the animation to now. None once the bubble has faded away.
+    pub fn pose(&mut self) -> Option<Pose> {
         let now = Instant::now();
         let dt = now.duration_since(self.last).as_secs_f32().min(0.05);
         self.last = now;
         self.appear = if self.up { self.appear + dt / 0.5 } else { self.appear - dt / 0.18 }.clamp(0.0, 1.0);
         self.pop = (self.pop + dt / 0.45).min(1.0);
         if self.appear <= 0.0 {
-            return Frame::Hidden;
+            return None;
         }
         // on the way in, each part pops with a little overshoot; on the way out, all shrink a touch
         let (small, big, body) = if self.up {
@@ -207,15 +249,21 @@ impl Bubble {
             (s, s, s)
         };
         let bounce = 1.0 + 0.14 * (self.pop * std::f32::consts::PI).sin() * (1.0 - self.pop);
-        let scale = body * bounce;
         let fade = if self.up { ease_out_cubic((self.appear * 4.0).min(1.0)) } else { ease_out_cubic(self.appear) };
-        let alpha = (fade * 255.0).round() as u8;
+        Some(Pose { alpha: (fade * 255.0).round() as u8, body: body * bounce, tails: [big, small], moving: !self.settled() })
+    }
+
+    /// Draw the bubble as it is at this moment of its animation into `shown`. It comes out
+    /// of the seal one bubble at a time, the small round one first, then the big one, then
+    /// the box; once up, the box and the two round bubbles float smoothly, a beat apart.
+    #[cfg_attr(not(windows), allow(dead_code))]
+    pub fn frame(&mut self, ui: f32) -> Frame {
+        let Some(Pose { alpha, body: scale, tails: [big, small], moving }) = self.pose() else { return Frame::Hidden };
 
         // the float: a slow sway up and down, the round bubbles a beat behind the box
-        let clock = now.duration_since(self.clock).as_secs_f32();
-        let sway = 2.0 * ui;
-        let wave = |lag: f32| ((clock / 2.8) * std::f32::consts::TAU - lag).sin() * sway;
-        let (float_box, float_big, float_small) = (wave(0.0), wave(0.9), wave(1.8));
+        let clock = self.clock.elapsed().as_secs_f32();
+        let wave = |lag: f32| ((clock / FLOAT_PERIOD) * std::f32::consts::TAU - lag).sin() * sway(ui);
+        let [float_box, float_big, float_small] = FLOAT_LAGS.map(wave);
 
         self.shown.reset(self.drawn.w, self.drawn.h);
         self.shown.draw_canvas(&self.drawn, (0.0, float_box), scale, self.anchor);
@@ -225,19 +273,19 @@ impl Bubble {
         }
         if let Some((x, y, r, color, period)) = self.dot {
             if period > 0.0 {
-                let phase = (clock / period).fract();
+                let (radius, opacity) = ripple((clock / period).fract(), r);
                 let (ax, ay) = self.anchor;
                 let (cx, cy) = (ax + (x - ax) * scale, ay + (y - ay) * scale + float_box);
-                let radius = (r * 2.0 + r * 1.6 * ease_out_cubic(phase)) * scale;
-                let w = 1.4 * ui;
-                let ring = Rgba(color.0, color.1, color.2, ((1.0 - phase).powi(2) * 170.0) as u8);
+                let radius = radius * scale;
+                let w = ripple_width(ui);
+                let ring = Rgba(color.0, color.1, color.2, (opacity * 255.0) as u8);
                 let reach = radius + w + 2.0;
                 self.shown.fill_sdf((cx - reach, cy - reach, cx + reach, cy + reach), ring, 1.0, move |x, y| {
                     circle(cx, cy, radius)(x, y).abs() - w / 2.0
                 });
             }
         }
-        Frame::Shown { x: self.at.0, y: self.at.1, alpha, moving: self.appear < 1.0 || self.pop < 1.0 }
+        Frame::Shown { x: self.at.0, y: self.at.1, alpha, moving }
     }
 
     /// Draw the size readout, a small pill just below the seal's box (above it when the

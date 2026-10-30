@@ -272,6 +272,11 @@ Everything else works as on Windows: dragging, resizing, the icon menu, the sett
      editor), then goes back to what it was doing.
   2. arrows (**Resize**): resize mode. Turn the mouse wheel over the seal or drag its corner
      handle; the seal fits anywhere from a 32 x 32 to a 512 x 512 px box. Click the seal when done.
+     We recommend **128 px or smaller** (the readout under the seal shows the size): the
+     smaller the seal, the fewer resources it uses, and the less of your screen it covers.
+     Sizes are screen pixels: on a 2x (Retina or 200%) display 128 px looks
+     like 64 px would on a 1x one. The seal starts at 140 x the display scale (280 px on a 2x
+     display), so you may want to shrink it.
   3. gear (**Settings**): opens the settings editor (see below), where you also show or
      hide the status bubble ("Working…", "Need your input!", ...)
   4. cross (**Close**): quit

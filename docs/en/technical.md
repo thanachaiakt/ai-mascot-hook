@@ -51,27 +51,63 @@ the same size, so they should cost about the same. Memory is `footprint`'s physi
 peak while switching states was 20 MB. Opening the status editor adds its window's memory
 (about 25 MB more while it is open).
 
+A later round of tuning on macOS (the timer, color space, Core Animation and run cache
+changes below) was measured as the CPU time the process used over 20 s, once the clip had
+played through, auto hide off, same Mac:
+
+| Case | Before | After | Memory after |
+|---|---|---|---|
+| `working`, bubble showing | 14.5% | 0.75% | 16 MB |
+| `working`, bubble off | 5.3% | 0.75% | 15 MB |
+| `asking`, bubble showing | 12.7% | 0.85% | 16 MB |
+| `loading`, bubble showing | 10.9% | 0.8% | 17 MB |
+| `completed`, bubble showing | | 0.9% | 16 MB |
+| `error`, bubble showing | | 0.7% | 15 MB |
+| `idle` (napping), bubble off | 4.7% | 0.75% | 14 MB |
+
+Memory went up about 2–3 MB for the run cache (see **Memory** below); that bought about a
+third of what is left of the CPU. Opening the menu or the editor, dragging and resizing
+cost more while they last.
+
 A plain AppKit app with one transparent window and nothing else already takes about 11 MB
 on the same Mac, so that is the floor on macOS: most of what is left is AppKit, the
 windows' backing stores and the bubble.
 
 Where the cost comes from:
 
-- **Animation:** every clip plays at 12 frames per second (83 ms per frame). Each frame is
-  scaled to the seal's size and copied to the screen, so a bigger seal costs a little
-  more.
-- **Timer (macOS):** one `NSTimer` ticks 60 times a second and runs whatever is due: the
-  next frame, the state poll, drag and menu handling. Most ticks do nothing.
+- **Animation:** every clip plays at 12 frames per second (83 ms per frame). On Windows
+  each frame is scaled to the seal's size on the CPU and copied to the screen, so a bigger
+  seal costs a little more. On macOS the frame goes to a Core Animation layer at the size
+  it is in its PNG and the GPU scales it, so the seal's size costs nothing; the image is
+  made over a reused buffer, without a copy, and the window is only moved when it moves
+  (AppKit keeps windows to whole points, so the frame asked for is whole points too).
+- **Timer (macOS):** one `NSTimer` runs whatever is due: the next frame, the state poll,
+  the bubble, a press turning into a drag. It sleeps until the next of these instead of
+  ticking 60 times a second, so it wakes about 12 times a second with the bubble off.
+  While the menu or the status editor is open it ticks 60 times a second, since they
+  watch for losing the keyboard, which sends no message.
+- **Color (macOS):** the canvases and the windows are both sRGB, so the window server
+  matches colors to the display on the GPU. With the old device-RGB canvases, Core
+  Animation converted every frame on the CPU, about a third of the seal's CPU time.
 - **Timers (Windows):** separate `SetTimer` timers for frames, the poll and the bubble, so
   nothing runs between them.
-- **Status bubble:** while it moves (pops in, bounces, fades) it redraws every 15 ms,
-  otherwise every 33 ms. Turning the bubble off saves this.
+- **Status bubble (macOS):** the box and its two round bubbles are each a Core Animation
+  layer, drawn once when the words change. Popping in, bouncing and fading set the
+  layers' scale every 15 ms; once settled, the float and the dot's ripple are endless
+  Core Animation animations, so the bubble costs no CPU while it is up.
+- **Status bubble (Windows):** while it moves (pops in, bounces, fades) it is redrawn every
+  15 ms, otherwise every 33 ms, since it floats. Each frame scales its parts with
+  fixed-point sums worked out once per row and column, skipping the clear space around
+  them. Turning the bubble off saves this.
 - **Memory:** `build.rs` cuts each strip in `assets/` into one small PNG per frame, and
   those go into `ai-mascot-hook.frames` beside the exe (about 12.5 MB for the 12 strips;
   the exe is under 1 MB). The seal maps that file, so it is read from disk as needed and
   not counted as the app's own memory, as when the frames were in the exe. Only the frame on
   screen is unpacked, one byte a pixel (260 × 260, about 66 KB), and the buffers are
-  reused from frame to frame. Unpacking a whole strip up front, as earlier versions did,
+  reused from frame to frame. On macOS each frame, once drawn, is also kept as runs of one
+  palette index (about 2–3 MB a clip), so the PNG is unpacked only the first time round
+  the clip: the runs unpack several times faster, and that was about a third of the CPU
+  left. Unpacking a whole strip up front, as earlier versions did,
   took 6–8 MB per clip and left about 25 MB of freed buffers that macOS's malloc kept; on
   a state change the Mac version now also hands freed memory back to the system
   (`malloc_zone_pressure_relief`).

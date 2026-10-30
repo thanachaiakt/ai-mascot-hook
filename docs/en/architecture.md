@@ -167,7 +167,8 @@ flowchart LR
 
 On Windows each source is a Win32 timer (`TIMER_FRAME`, `TIMER_POLL`, `TIMER_BUBBLE`,
 `TIMER_AUTOHIDE`, `TIMER_HOLD`, plus `TIMER_MENU` for the menu animation). On macOS one
-60 Hz `NSTimer` calls `App::tick`, which checks when each of these is due.
+`NSTimer` calls `App::tick`, which checks when each of these is due; after every call into
+the app, `with` sets the timer to fire when the next one is (`App::next_tick`).
 
 ## 5. Drawing the seal
 
@@ -176,10 +177,15 @@ flowchart LR
     png["assets/*.png<br/>frame strip (palette PNG)"] -- "build.rs<br/>one PNG per frame" --> frames["ai-mascot-hook.frames<br/>(beside the exe, mapped)"]
     frames -- "store::strip_frames<br/>Strip::decode" --> strip["Strip<br/>compressed frames"]
     strip -- "Strip::zoomed<br/>(working: 1.15x, frames grow)" --> strip2["Strip + pad"]
-    strip2 -- "Strip::draw<br/>unpack one frame, scale to seal size" --> mc["Canvas mc"]
+    strip2 -- "Windows: Strip::draw<br/>unpack one frame, scale to seal size" --> mc["Canvas mc"]
     mc -- "resize mode:<br/>frame + handle" --> mc
-    mc -- "Windows: UpdateLayeredWindow<br/>macOS: CGImage on the layer" --> win["seal window<br/>(box + transparent overhang)"]
+    mc -- "UpdateLayeredWindow" --> win["seal window<br/>(box + transparent overhang)"]
+    strip2 -- "macOS: Strip::draw_unscaled<br/>one frame at PNG size<br/>(runs cached after the first time)" --> art["art layer,<br/>placed by Strip::place,<br/>scaled on the GPU"]
+    art --> win
 ```
+
+On macOS the resize frame and handle are drawn into `mc` and shown on an `overlay` layer
+above the art.
 
 The seal's **box** (x, y, height) is what gets saved, dragged and resized, and what the
 bubble is placed against. For the zoomed `working` clip, the **window** reaches past the
@@ -196,12 +202,18 @@ flowchart TD
     app -- "hidden" --> hidebox["Bubble::hide"]
     show --> drawn["drawn: box in pixel-art sticker style<br/>+ smooth accent dot + text"]
     show --> tails["tails: two round bubbles,<br/>each on its own canvas"]
-    frame["App::bubble_frame (timer)"] --> bfr["Bubble::frame"]
+    frame["App::bubble_frame (timer)"] --> bfr["Bubble::frame (Windows)"]
     hidebox --> bfr
+    bfr --> pose["Bubble::pose<br/>appear, bounce, alpha, moving"]
     bfr --> comp["shown = drawn + tails composited<br/>with pop-in, bounce, float, ripple"]
     comp -- "Frame::Shown {x, y, alpha, moving}" --> present["platform shows the 'shown' canvas<br/>and sets the next frame's timer"]
     bfr -- "Frame::Hidden" --> off["platform hides the window,<br/>stops the timer"]
+    mframe["macOS App::bubble_frame"] --> pose
+    pose -- "scales on the box and tail layers;<br/>no more frames once settled" --> layers["box, tail and ripple layers;<br/>float and ripple are endless<br/>Core Animation animations"]
 ```
+
+On macOS `App::bubble_layers` gives the layers `drawn` and `tails` each time `Bubble::show`
+redraws them, and sets the ripple up again only when the dot changes.
 
 Animation inputs: `appear` (0 to 1: pop in over 0.5 s, fade out over 0.18 s), `pop` (the
 bounce when `key` changes), and a clock for the 2.8 s float and the dot's ripple. Easing

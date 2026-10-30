@@ -161,7 +161,8 @@ flowchart LR
 
 บน Windows แต่ละอย่างเป็น timer ของ Win32 (`TIMER_FRAME`, `TIMER_POLL`, `TIMER_BUBBLE`,
 `TIMER_AUTOHIDE`, `TIMER_HOLD` และ `TIMER_MENU` สำหรับ animation ของเมนู)
-บน macOS ใช้ `NSTimer` ตัวเดียวที่ 60 ครั้งต่อวินาที เรียก `App::tick` แล้วเช็คว่าถึงเวลาทำอะไรบ้าง
+บน macOS ใช้ `NSTimer` ตัวเดียว เรียก `App::tick` แล้วเช็คว่าถึงเวลาทำอะไรบ้าง หลังทุกครั้งที่เรียกเข้าแอป
+`with` จะตั้งให้ timer ทำงานอีกทีตอนงานถัดไปถึงเวลา (`App::next_tick`)
 
 ## 5. การวาดแมวน้ำ
 
@@ -170,10 +171,14 @@ flowchart LR
     png["assets/*.png<br/>แถบภาพ (PNG แบบ palette)"] -- "build.rs<br/>PNG ทีละเฟรม" --> frames["ai-mascot-hook.frames<br/>(ข้าง exe, map เข้าหน่วยความจำ)"]
     frames -- "store::strip_frames<br/>Strip::decode" --> strip["Strip<br/>เฟรมที่ยังบีบอัดอยู่"]
     strip -- "Strip::zoomed<br/>(working ขยาย 1.15 เท่า ขยายกรอบตาม)" --> strip2["Strip + ระยะที่ขยาย"]
-    strip2 -- "Strip::draw<br/>ถอดหนึ่งเฟรม ย่อขยายเท่าขนาดแมวน้ำ" --> mc["Canvas mc"]
+    strip2 -- "Windows: Strip::draw<br/>ถอดหนึ่งเฟรม ย่อขยายเท่าขนาดแมวน้ำ" --> mc["Canvas mc"]
+    strip2 -- "macOS: Strip::draw_unscaled<br/>หนึ่งเฟรมขนาดเท่า PNG<br/>(เก็บเป็น run หลังรอบแรก)" --> art["layer art<br/>วางตาม Strip::place<br/>ย่อขยายบน GPU"]
     mc -- "โหมดปรับขนาด:<br/>กรอบ + ปุ่มมุม" --> mc
-    mc -- "Windows: UpdateLayeredWindow<br/>macOS: CGImage บน layer" --> win["หน้าต่างแมวน้ำ<br/>(กรอบ + พื้นที่โปร่งใสรอบนอก)"]
+    mc -- "UpdateLayeredWindow" --> win["หน้าต่างแมวน้ำ<br/>(กรอบ + พื้นที่โปร่งใสรอบนอก)"]
+    art --> win
 ```
+
+บน macOS กรอบและปุ่มมุมตอนปรับขนาดวาดลง `mc` แล้วแสดงบน layer `overlay` ที่อยู่เหนือ art
 
 **กรอบ** ของแมวน้ำ (x, y, ความสูง) คือส่วนที่ถูกบันทึก ถูกลาก ถูกปรับขนาด และใช้วาง bubble
 สำหรับท่า `working` ที่ขยาย **หน้าต่าง** จะใหญ่เกินกรอบออกไป (`overhang`)
@@ -190,12 +195,16 @@ flowchart TD
     app -- "ซ่อน" --> hidebox["Bubble::hide"]
     show --> drawn["drawn: กล่องแบบ pixel art สติกเกอร์<br/>+ จุดสีแบบเรียบ + ข้อความ"]
     show --> tails["tails: วงกลมหางสองวง<br/>แต่ละวงมี canvas ของตัวเอง"]
-    frame["App::bubble_frame (timer)"] --> bfr["Bubble::frame"]
+    frame["App::bubble_frame (timer)"] --> bfr["Bubble::frame (Windows)"]
+    mframe["macOS App::bubble_frame"] --> pose["Bubble::pose<br/>ขนาดของ layer กล่องและฟองกลม<br/>นิ่งแล้วไม่ขอเฟรมอีก<br/>การลอยและวงแหวนเป็น animation<br/>ของ Core Animation"]
     hidebox --> bfr
     bfr --> comp["shown = drawn + tails รวมกัน<br/>พร้อมเด้งออก เด้ง ลอย วงแหวน"]
     comp -- "Frame::Shown {x, y, alpha, moving}" --> present["แต่ละระบบเอา canvas 'shown' ขึ้นจอ<br/>แล้วตั้งเวลาภาพถัดไป"]
     bfr -- "Frame::Hidden" --> off["แต่ละระบบซ่อนหน้าต่าง<br/>หยุด timer"]
 ```
+
+บน macOS `App::bubble_layers` ส่ง `drawn` และ `tails` ให้ layer ทุกครั้งที่ `Bubble::show` วาดใหม่
+และตั้งวงแหวนใหม่เฉพาะตอนที่จุดสีเปลี่ยน
 
 ค่าที่ใช้คุม animation:
 

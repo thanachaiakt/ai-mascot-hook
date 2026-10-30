@@ -43,33 +43,52 @@ impl Canvas {
         let x1 = ((ox + (sw as f32 - pivot.0) * scale).ceil() as i32).min(self.w);
         let y0 = ((oy - pivot.1 * scale).floor() as i32).max(0);
         let y1 = ((oy + (sh as f32 - pivot.1) * scale).ceil() as i32).min(self.h);
-        let texel = |x: i32, y: i32| -> [f32; 4] {
-            if x < 0 || y < 0 || x >= sw || y >= sh {
-                return [0.0; 4];
-            }
-            let i = ((y * sw + x) * 4) as usize;
-            [from[i] as f32, from[i + 1] as f32, from[i + 2] as f32, from[i + 3] as f32]
+        // the two source pixels a column or row blends (None past the edge) and the second's
+        // weight in 1/256ths, worked out once per column and row rather than per pixel: the
+        // bubble runs this on every frame
+        let taps = |o: i32, origin: f32, pivot: f32, limit: i32| {
+            let s = pivot + (o as f32 + 0.5 - origin) / scale - 0.5;
+            let i = s.floor() as i32;
+            let inside = |i: i32| (0..limit).contains(&i).then_some(i as usize);
+            (inside(i), inside(i + 1), ((s - s.floor()) * 256.0).round() as u32)
         };
-        let w = self.w;
+        let cols: Vec<_> = (x0..x1).map(|x| taps(x, ox, pivot.0, sw)).collect();
+        let stride = sw as usize * 4;
+        let row = |r: Option<usize>| r.map(|r| &from[r * stride..][..stride]);
+        let texel = |row: Option<&[u8]>, c: Option<usize>| match (row, c) {
+            (Some(row), Some(c)) => [row[c * 4], row[c * 4 + 1], row[c * 4 + 2], row[c * 4 + 3]],
+            _ => [0; 4],
+        };
+        let w = self.w as usize;
         let px = self.px();
         for y in y0..y1 {
-            let sy = pivot.1 + (y as f32 + 0.5 - oy) / scale - 0.5;
-            let (ty, fy) = (sy.floor() as i32, sy - sy.floor());
-            for x in x0..x1 {
-                let sx = pivot.0 + (x as f32 + 0.5 - ox) / scale - 0.5;
-                let (tx, fx) = (sx.floor() as i32, sx - sx.floor());
-                let (a, b, c, d) = (texel(tx, ty), texel(tx + 1, ty), texel(tx, ty + 1), texel(tx + 1, ty + 1));
-                let mut s = [0.0f32; 4];
-                for k in 0..4 {
-                    s[k] = (a[k] * (1.0 - fx) + b[k] * fx) * (1.0 - fy) + (c[k] * (1.0 - fx) + d[k] * fx) * fy;
-                }
-                if s[3] < 0.5 {
+            let (r0, r1, wy) = taps(y, oy, pivot.1, sh);
+            let (row0, row1) = (row(r0), row(r1));
+            if row0.is_none() && row1.is_none() {
+                continue;
+            }
+            for (x, &(c0, c1, wx)) in (x0..x1).zip(&cols) {
+                // a settled bubble only floats up and down, so one of each pair often weighs nothing
+                let a = texel(row0, c0);
+                let b = if wx == 0 { [0; 4] } else { texel(row0, c1) };
+                let (c, d) = if wy == 0 { ([0; 4], [0; 4]) } else { (texel(row1, c0), if wx == 0 { [0; 4] } else { texel(row1, c1) }) };
+                // most of a drawing is the clear space around it
+                if a[3] | b[3] | c[3] | d[3] == 0 {
                     continue;
                 }
-                let keep = 1.0 - s[3] / 255.0;
-                let i = ((y * w + x) * 4) as usize;
+                let mut s = [0u32; 4];
                 for k in 0..4 {
-                    px[i + k] = (s[k] + px[i + k] as f32 * keep).round().min(255.0) as u8;
+                    let top = a[k] as u32 * (256 - wx) + b[k] as u32 * wx;
+                    let bottom = c[k] as u32 * (256 - wx) + d[k] as u32 * wx;
+                    s[k] = (top * (256 - wy) + bottom * wy + 32768) >> 16;
+                }
+                if s[3] == 0 {
+                    continue;
+                }
+                let keep = 255 - s[3];
+                let i = (y as usize * w + x as usize) * 4;
+                for k in 0..4 {
+                    px[i + k] = (s[k] + (px[i + k] as u32 * keep + 127) / 255).min(255) as u8;
                 }
             }
         }
@@ -276,6 +295,11 @@ pub struct Strip {
     idx: Vec<u8>,
     raw: Vec<u8>,
     unpacked: Option<usize>,
+    /// each frame `draw_unscaled` has drawn, as runs of one palette index (a 2-byte length,
+    /// then the index), which unpack several times faster than the PNG when the clip comes
+    /// round again; about 2.5 MB a clip once it has played through
+    #[cfg_attr(windows, allow(dead_code))]
+    runs: Vec<Vec<u8>>,
     stride: usize,
     pub frames: usize,
     pub fw: usize,
@@ -310,7 +334,7 @@ impl Strip {
             pal[i] = [(rgb[2] as u32 * a / 255) as u8, (rgb[1] as u32 * a / 255) as u8, (rgb[0] as u32 * a / 255) as u8, a as u8];
         }
         let clear = pal.iter().position(|c| c[3] == 0).unwrap_or(0) as u8;
-        Strip { pngs, pal, clear, sw, sh, zoom: 1.0, pivot: (0.0, 0.0), idx: Vec::new(), raw: Vec::new(), unpacked: None, stride: sw, frames: count, fw: sw, fh: sh, pad: (0, 0, 0, 0) }
+        Strip { pngs, pal, clear, sw, sh, zoom: 1.0, pivot: (0.0, 0.0), idx: Vec::new(), raw: Vec::new(), unpacked: None, runs: Vec::new(), stride: sw, frames: count, fw: sw, fh: sh, pad: (0, 0, 0, 0) }
     }
 
     /// Let go of the frames, so a clip about to be decoded does not sit in memory beside
@@ -320,6 +344,7 @@ impl Strip {
         self.idx = Vec::new();
         self.raw = Vec::new();
         self.unpacked = None;
+        self.runs = Vec::new();
         self.frames = 0;
     }
 
@@ -407,12 +432,68 @@ impl Strip {
         self.unpacked = Some(f);
     }
 
-    /// Draw frame `f` as large as fits the canvas, keeping the frame's aspect: centered
+    /// A frame's size in its PNG, before any zoom: what `draw_unscaled` writes.
+    #[cfg_attr(windows, allow(dead_code))]
+    pub fn frame_size(&self) -> (usize, usize) {
+        (self.sw, self.sh)
+    }
+
+    /// Write frame `f` into `px` (premultiplied BGRA, `frame_size`) as it is in its PNG: not
+    /// zoomed, not scaled. For a platform that scales on the GPU; `place` says where it goes.
+    #[cfg_attr(windows, allow(dead_code))]
+    pub fn draw_unscaled(&mut self, f: usize, px: &mut [u8]) {
+        if f >= self.frames {
+            return px.fill(0);
+        }
+        self.runs.resize(self.frames, Vec::new());
+        if self.runs[f].is_empty() {
+            let mut raw = std::mem::take(&mut self.raw);
+            self.unpack(f, &mut raw);
+            let runs = &mut self.runs[f];
+            let mut rest = &raw[..];
+            while let Some(&i) = rest.first() {
+                let n = rest.iter().take(u16::MAX as usize).take_while(|&&j| j == i).count();
+                runs.extend((n as u16).to_le_bytes());
+                runs.push(i);
+                rest = &rest[n..];
+            }
+            runs.shrink_to_fit();
+            self.raw = raw;
+            // `raw` is also where `show` unpacks a zoomed frame on the way
+            self.unpacked = None;
+        }
+        let mut px = px.chunks_exact_mut(4);
+        for run in self.runs[f].chunks_exact(3) {
+            let color = &self.pal[run[2] as usize];
+            for p in px.by_ref().take(u16::from_le_bytes([run[0], run[1]]) as usize) {
+                p.copy_from_slice(color);
+            }
+        }
+    }
+
+    /// Where `draw_unscaled`'s picture goes in a `cw` x `ch` canvas for the art to land where
+    /// `draw` puts it, zoom included: left, top, width and height, in canvas pixels.
+    #[cfg_attr(windows, allow(dead_code))]
+    pub fn place(&self, cw: i32, ch: i32) -> (f32, f32, f32, f32) {
+        let fit = (cw as f32 / self.fw as f32).min(ch as f32 / self.fh as f32);
+        let ow = (self.fw as f32 * fit).round().clamp(1.0, cw as f32);
+        let oh = (self.fh as f32 * fit).round().clamp(1.0, ch as f32);
+        let (dx, dy) = (((cw as f32 - ow) / 2.0).floor(), ch as f32 - oh);
+        let (kx, ky) = (ow / self.fw as f32, oh / self.fh as f32);
+        // the PNG's top left, in the zoomed frame
+        let (left, top, _, _) = self.pad;
+        let x0 = left as f32 + self.pivot.0 * (1.0 - self.zoom);
+        let y0 = top as f32 + self.pivot.1 * (1.0 - self.zoom);
+        (dx + x0 * kx, dy + y0 * ky, self.sw as f32 * self.zoom * kx, self.sh as f32 * self.zoom * ky)
+    }
+
+    /// Draw frame `f` as large as fits the canvas, which must be clear, keeping the frame's aspect: centered
     /// across, resting on the bottom edge (a square strip in the taller seal box sits where
     /// the other strips' seal does).
     ///
     /// Source positions are worked out once per row and column, so the per-pixel work is
     /// table lookups and integer sums: this runs every frame, at 20 frames a second.
+    #[cfg_attr(not(windows), allow(dead_code))]
     pub fn draw(&mut self, f: usize, cv: &mut Canvas) {
         if f >= self.frames {
             return;
@@ -465,11 +546,17 @@ impl Strip {
                 let (y0, y1, wy) = at(y, ry, self.fh);
                 let (r0, r1) = (y0 * self.stride, y1 * self.stride);
                 for (x, &(x0, x1, wx)) in cols.iter().enumerate() {
-                    let c00 = &self.pal[self.idx[r0 + x0] as usize];
-                    let c10 = &self.pal[self.idx[r0 + x1] as usize];
-                    let c01 = &self.pal[self.idx[r1 + x0] as usize];
-                    let c11 = &self.pal[self.idx[r1 + x1] as usize];
+                    let (i00, i10, i01, i11) = (self.idx[r0 + x0], self.idx[r0 + x1], self.idx[r1 + x0], self.idx[r1 + x1]);
                     let o = out(x, y);
+                    // pixel art is mostly flat runs of one color: blending four of the same
+                    // gives that color, and the clear one is already on the canvas
+                    if i00 == i10 && i00 == i01 && i00 == i11 {
+                        if i00 != self.clear {
+                            px[o..o + 4].copy_from_slice(&self.pal[i00 as usize]);
+                        }
+                        continue;
+                    }
+                    let (c00, c10, c01, c11) = (&self.pal[i00 as usize], &self.pal[i10 as usize], &self.pal[i01 as usize], &self.pal[i11 as usize]);
                     for k in 0..4 {
                         let top = c00[k] as u32 * (256 - wx) + c10[k] as u32 * wx;
                         let bottom = c01[k] as u32 * (256 - wx) + c11[k] as u32 * wx;

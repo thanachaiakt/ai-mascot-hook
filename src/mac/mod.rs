@@ -9,9 +9,9 @@
 mod editor;
 mod menu;
 
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::os::unix::net::{UnixListener, UnixStream};
-use std::time::{Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use block2::RcBlock;
 use editor::*;
@@ -19,11 +19,13 @@ use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{define_class, msg_send, AllocAnyThread, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSEvent, NSPanel, NSResponder, NSScreen, NSStatusWindowLevel, NSView, NSWindow,
+    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSColor, NSColorSpace, NSEvent, NSPanel, NSResponder, NSScreen, NSStatusWindowLevel, NSView, NSWindow,
     NSWindowCollectionBehavior, NSWindowStyleMask,
 };
 use objc2_core_foundation::{CGPoint, CGRect, CGSize};
-use objc2_foundation::{NSObject, NSRunLoop, NSRunLoopCommonModes, NSTimer};
+use objc2_core_graphics::{CGColor, CGImage, CGPath};
+use objc2_foundation::{NSArray, NSDate, NSNumber, NSObject, NSRunLoop, NSRunLoopCommonModes, NSString, NSTimer};
+use objc2_quartz_core::{kCAFilterTrilinear, CAKeyframeAnimation, CALayer, CAMediaTiming, CAShapeLayer, CATransaction, CATransform3D};
 
 use crate::bubble::*;
 use crate::editor::*;
@@ -68,9 +70,20 @@ struct App {
     editor_fonts: EditorFonts,
     /// takes the editor's text-box and color-panel messages
     editor_target: Retained<EditorTarget>,
-    /// the seal as drawn this frame
+    /// the seal's art, a frame as it is in its PNG, scaled to the window on the GPU
+    art: Retained<CALayer>,
+    /// the frame and handle shown over the seal while resizing, drawn into `mc`
+    overlay: Retained<CALayer>,
     mc: Canvas,
     bubble: Bubble,
+    /// the bubble's box and its two round bubbles, each a layer with its drawing, so Core
+    /// Animation floats and scales them and nothing is redrawn while the bubble is up; and
+    /// the dot's ripple, in the box
+    bubble_box: Retained<CALayer>,
+    bubble_tails: [Retained<CALayer>; 2],
+    ring: Retained<CAShapeLayer>,
+    /// what the ripple was last set up for, so it keeps running while that stays the same
+    ring_for: Option<[f32; 9]>,
     /// the display's scale: pixels per point
     scale: f32,
     x: i32,
@@ -101,11 +114,23 @@ struct App {
 
 thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
+    /// the timer that runs `App::tick`
+    static TIMER: OnceCell<Retained<NSTimer>> = const { OnceCell::new() };
 }
 
-/// Run `f` on the app, unless it is already busy further up this call stack.
+/// Run `f` on the app, unless it is already busy further up this call stack. Anything `f`
+/// does may bring the next tick forward, so the timer is set again afterwards.
 fn with<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
-    APP.with(|a| a.try_borrow_mut().ok().and_then(|mut guard| guard.as_mut().map(f)))
+    APP.with(|a| {
+        a.try_borrow_mut().ok().and_then(|mut guard| {
+            guard.as_mut().map(|app| {
+                let r = f(app);
+                let wait = app.next_tick().saturating_duration_since(Instant::now());
+                TIMER.with(|t| t.get().map(|t| t.setFireDate(&NSDate::dateWithTimeIntervalSinceNow(wait.as_secs_f64()))));
+                r
+            })
+        })
+    })
 }
 
 define_class!(
@@ -190,6 +215,9 @@ fn panel(mtm: MainThreadMarker, content: &NSView, clicks: bool, key: bool) -> Re
     unsafe { panel.setReleasedWhenClosed(false) };
     panel.setOpaque(false);
     panel.setBackgroundColor(Some(&NSColor::clearColor()));
+    // the canvases are sRGB too, so the window server matches colors to the display on the
+    // GPU and nothing is converted on the CPU
+    panel.setColorSpace(Some(&NSColorSpace::sRGBColorSpace()));
     panel.setHasShadow(false);
     panel.setLevel(NSStatusWindowLevel);
     panel.setIgnoresMouseEvents(!clicks);
@@ -214,12 +242,27 @@ fn main_height(mtm: MainThreadMarker) -> f64 {
 
 /// Show `canvas` as `win`'s content, its top-left at pixel (x, y), faded by `alpha`.
 fn present(mtm: MainThreadMarker, win: &NSPanel, canvas: &Canvas, x: i32, y: i32, alpha: u8, scale: f32) {
-    let s = scale as f64;
-    let (w, h) = (canvas.w as f64 / s, canvas.h as f64 / s);
-    let origin = CGPoint::new(x as f64 / s, main_height(mtm) - y as f64 / s - h);
-    win.setFrame_display(CGRect::new(origin, CGSize::new(w, h)), false);
     show_canvas(win, canvas, scale);
-    win.setAlphaValue(alpha as f64 / 255.0);
+    place_window(mtm, win, (x, y, canvas.w, canvas.h), alpha, scale);
+}
+
+/// Put `win` at `rect` (left, top, width, height, in pixels), faded by `alpha`, and show it.
+fn place_window(mtm: MainThreadMarker, win: &NSPanel, rect: (i32, i32, i32, i32), alpha: u8, scale: f32) {
+    let s = scale as f64;
+    let (x, y, w, h) = rect;
+    // AppKit keeps a window to whole points, growing a half point to a whole one: ask for
+    // that, so a frame that has not changed compares equal. The layers sit on the bottom
+    // edge, which stays put.
+    let bottom = (main_height(mtm) - (y + h) as f64 / s).floor();
+    let frame = CGRect::new(CGPoint::new((x as f64 / s).floor(), bottom), CGSize::new((w as f64 / s).ceil(), (h as f64 / s).ceil()));
+    // most frames leave the window where it was: moving it, even nowhere, costs the window server
+    if win.frame() != frame {
+        win.setFrame_display(frame, false);
+    }
+    let alpha = alpha as f64 / 255.0;
+    if win.alphaValue() != alpha {
+        win.setAlphaValue(alpha);
+    }
     if !win.isVisible() {
         win.orderFrontRegardless();
     }
@@ -227,13 +270,69 @@ fn present(mtm: MainThreadMarker, win: &NSPanel, canvas: &Canvas, x: i32, y: i32
 
 /// Show `canvas` as `win`'s content, leaving the window where it is.
 fn show_canvas(win: &NSPanel, canvas: &Canvas, scale: f32) {
-    if let (Some(view), Some(image)) = (win.contentView(), canvas.image()) {
-        if let Some(layer) = view.layer() {
-            layer.setContentsScale(scale as f64);
-            let image: &AnyObject = unsafe { &*(&*image as *const _ as *const AnyObject) };
-            unsafe { layer.setContents(Some(image)) };
-        }
+    if let Some(layer) = win.contentView().and_then(|view| view.layer()) {
+        layer.setContentsScale(scale as f64);
+        set_image(&layer, canvas);
     }
+}
+
+fn set_image(layer: &CALayer, canvas: &Canvas) {
+    if let Some(image) = canvas.image() {
+        show_image(layer, &image);
+    }
+}
+
+fn show_image(layer: &CALayer, image: &CGImage) {
+    let image: &AnyObject = unsafe { &*(image as *const _ as *const AnyObject) };
+    unsafe { layer.setContents(Some(image)) };
+}
+
+/// A layer over `win`'s content, for its own drawing.
+fn sublayer(win: &NSPanel, scale: f32) -> Retained<CALayer> {
+    let layer = CALayer::new();
+    layer.setContentsScale(scale as f64);
+    if let Some(content) = win.contentView().and_then(|view| view.layer()) {
+        content.addSublayer(&layer);
+    }
+    layer
+}
+
+/// Change layers in one go, without the quarter-second fade or glide Core Animation gives a
+/// layer's changes by default.
+fn instantly(f: impl FnOnce()) {
+    CATransaction::begin();
+    CATransaction::setDisableActions(true);
+    f();
+    CATransaction::commit();
+}
+
+/// `rect` (left, top, width, height, in pixels) in a layer `height` pixels tall, in the points
+/// up from its bottom left that a layer's frame is given in.
+fn layer_rect(rect: (f32, f32, f32, f32), height: f32, scale: f32) -> CGRect {
+    let (x, y, w, h) = rect;
+    let s = scale as f64;
+    CGRect::new(CGPoint::new(x as f64 / s, (height - y - h) as f64 / s), CGSize::new(w as f64 / s, h as f64 / s))
+}
+
+/// An endless animation of `path` through `values`, evenly spaced over `period` seconds.
+fn keyframes(path: &str, values: &[&AnyObject], period: f32) -> Retained<CAKeyframeAnimation> {
+    let anim = CAKeyframeAnimation::animationWithKeyPath(Some(&NSString::from_str(path)));
+    unsafe { anim.setValues(Some(&NSArray::from_slice(values))) };
+    anim.setDuration(period as f64);
+    anim.setRepeatCount(f32::INFINITY);
+    anim
+}
+
+/// The float of one of the bubble's parts: a sway of `sway` points up and down, `lag`
+/// radians behind the box, added to wherever the part is put.
+fn float_anim(sway: f32, lag: f32) -> Retained<CAKeyframeAnimation> {
+    const STEPS: usize = 48;
+    // y counts up in a layer, so sinking is negative
+    let values: Vec<Retained<NSNumber>> = (0..=STEPS).map(|i| NSNumber::new_f32(-sway * (i as f32 / STEPS as f32 * std::f32::consts::TAU - lag).sin())).collect();
+    let refs: Vec<&AnyObject> = values.iter().map(|v| v.as_ref()).collect();
+    let anim = keyframes("position.y", &refs, FLOAT_PERIOD);
+    anim.setAdditive(true);
+    anim
 }
 
 /// A point in `view`, from AppKit's points up from its bottom left to pixels down from its
@@ -291,9 +390,13 @@ impl App {
     fn draw_mascot(&mut self) {
         let (w, h) = self.size();
         let (l, t, r, b) = self.overhang();
-        self.mc.reset(w + l + r, h + t + b);
-        self.strip.draw(self.frame, &mut self.mc);
+        let (cw, ch) = (w + l + r, h + t + b);
+        // only the frame is unpacked here; the GPU scales it to the window
+        let (fw, fh) = self.strip.frame_size();
+        let (strip, frame) = (&mut self.strip, self.frame);
+        let art = bgra_image(fw, fh, |px| strip.draw_unscaled(frame, px));
         if self.resize_mode {
+            self.mc.reset(cw, ch);
             let ui = self.scale;
             let (ox, oy) = (l as f32, t as f32);
             let (wf, hf) = (w as f32, h as f32);
@@ -304,8 +407,19 @@ impl App {
             self.mc.fill_sdf((cx - r - 2.0, cy - r - 2.0, cx + r + 2.0, cy + r + 2.0), BLUE, 1.0, circle(cx, cy, r));
             self.mc.fill_sdf((cx - r, cy - r, cx + r, cy + r), WHITE, 1.0, circle(cx, cy, r - 1.6 * ui));
         }
+        instantly(|| {
+            if let Some(art) = &art {
+                show_image(&self.art, art);
+            }
+            self.art.setFrame(layer_rect(self.strip.place(cw, ch), ch as f32, self.scale));
+            self.overlay.setHidden(!self.resize_mode);
+            if self.resize_mode {
+                set_image(&self.overlay, &self.mc);
+                self.overlay.setFrame(layer_rect((0.0, 0.0, cw as f32, ch as f32), ch as f32, self.scale));
+            }
+        });
         let alpha = if matches!(self.press, Press::Drag { .. }) { 225 } else { 255 };
-        present(self.mtm, &self.mascot, &self.mc, self.x - l, self.y - t, alpha, self.scale);
+        place_window(self.mtm, &self.mascot, (self.x - l, self.y - t, cw, ch), alpha, self.scale);
     }
 
     /// The state the seal shows: the one being edited while the editor is open, so it
@@ -394,7 +508,25 @@ impl App {
         }
     }
 
-    /// Everything that moves with time, run about 60 times a second.
+    /// When `tick` next has something to do. The timer sleeps until then rather than
+    /// ticking 60 times a second: most of those ticks did nothing but wake the CPU.
+    fn next_tick(&self) -> Instant {
+        let now = Instant::now();
+        // the menu and the editor watch for losing the keyboard, which sends nothing here
+        if self.menu.open || self.editor.is_some() {
+            return now + Duration::from_millis(16);
+        }
+        let mut due = self.next_poll.min(self.frame_at + Duration::from_millis(self.turns.clip().interval as u64));
+        if let Press::Pending { since, .. } = self.press {
+            due = due.min(since + Duration::from_millis(HOLD_MS as u64));
+        }
+        for at in [self.hide_at, self.bubble_at].into_iter().flatten() {
+            due = due.min(at);
+        }
+        due
+    }
+
+    /// Everything that moves with time, run when `next_tick` says.
     fn tick(&mut self) {
         let now = Instant::now();
         if now.duration_since(self.frame_at).as_millis() as u32 >= self.turns.clip().interval {
@@ -409,8 +541,9 @@ impl App {
                 self.draw_mascot();
             }
         }
-        if now >= self.next_poll {
-            self.next_poll = now + std::time::Duration::from_millis(POLL_MS as u64);
+        // a little early on a frame's tick, rather than waking up for the poll alone
+        if now + Duration::from_millis(self.turns.clip().interval as u64) >= self.next_poll {
+            self.next_poll = now + Duration::from_millis(POLL_MS as u64);
             self.poll();
         }
         if let Press::Pending { grab, since, .. } = self.press {
@@ -438,9 +571,9 @@ impl App {
 
     /// A press at `at`, in the window's points from its bottom left.
     fn press_down(&mut self, at: CGPoint) {
-        let (l, t, _, _) = self.overhang();
+        let (l, t, _, b) = self.overhang();
         let s = self.scale as f64;
-        let win_h = self.mc.h as f64;
+        let win_h = (self.size().1 + t + b) as f64;
         // in the box, in pixels from its top left
         let (bx, by) = ((at.x * s) as f32 - l as f32, (win_h - at.y * s) as f32 - t as f32);
         let cursor = self.cursor();
@@ -579,20 +712,77 @@ impl App {
         let content = Content { text: &text, dot, ink, key: &key };
         let work = self.work_area(self.x + w / 2, self.y);
         self.bubble.show(&content, seal, work, tag, self.scale);
+        self.bubble_layers();
         self.bubble_frame();
     }
 
-    fn bubble_frame(&mut self) {
-        match self.bubble.frame(self.scale) {
-            Frame::Hidden => {
-                self.bubble_at = None;
-                self.bubble_win.orderOut(None);
+    /// Give the bubble's layers what `Bubble::show` drew, where it put each part.
+    fn bubble_layers(&mut self) {
+        let b = &self.bubble;
+        let (s, ui) = (self.scale as f64, self.scale);
+        let (cw, ch) = (b.drawn.w as f64, b.drawn.h as f64);
+        instantly(|| {
+            // the box grows and bounces about the point nearest the seal
+            let (ax, ay) = (b.anchor.0 as f64, b.anchor.1 as f64);
+            set_image(&self.bubble_box, &b.drawn);
+            self.bubble_box.setBounds(CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(cw / s, ch / s)));
+            self.bubble_box.setAnchorPoint(CGPoint::new(ax / cw, 1.0 - ay / ch));
+            self.bubble_box.setPosition(CGPoint::new(ax / s, (ch - ay) / s));
+            // the round bubbles grow about their centers
+            for (layer, (canvas, &(x, y, reach))) in self.bubble_tails.iter().zip(b.tails.iter().zip(&b.tail)) {
+                let side = canvas.w as f64 / s;
+                set_image(layer, canvas);
+                layer.setBounds(CGRect::new(CGPoint::new(0.0, 0.0), CGSize::new(side, side)));
+                layer.setPosition(CGPoint::new((x + reach) as f64 / s, (ch - (y + reach) as f64) / s));
             }
-            Frame::Shown { x, y, alpha, moving } => {
-                present(self.mtm, &self.bubble_win, &self.bubble.shown, x, y, alpha, self.scale);
-                self.bubble_at = Some(Instant::now() + std::time::Duration::from_millis(if moving { 15 } else { 33 }));
-            }
+        });
+        // the ripple starts over only when it changes: this runs on every move of the seal
+        let ring_for = b.dot.filter(|d| d.4 > 0.0).map(|(x, y, r, c, period)| [x, y, r, period, c.0 as f32, c.1 as f32, c.2 as f32, cw as f32, ch as f32]);
+        if ring_for == self.ring_for {
+            return;
         }
+        self.ring_for = ring_for;
+        instantly(|| {
+            self.ring.removeAllAnimations();
+            self.ring.setHidden(ring_for.is_none());
+            let Some((x, y, r, color, period)) = b.dot.filter(|_| ring_for.is_some()) else { return };
+            self.ring.setFrame(self.bubble_box.bounds());
+            self.ring.setFillColor(None);
+            self.ring.setStrokeColor(Some(&CGColor::new_srgb(color.0 as f64 / 255.0, color.1 as f64 / 255.0, color.2 as f64 / 255.0, 1.0)));
+            self.ring.setLineWidth(ripple_width(ui) as f64 / s);
+            const STEPS: usize = 24;
+            let (paths, opacities): (Vec<_>, Vec<_>) = (0..=STEPS)
+                .map(|i| {
+                    let (radius, opacity) = ripple(i as f32 / STEPS as f32, r);
+                    let rect = layer_rect((x - radius, y - radius, 2.0 * radius, 2.0 * radius), ch as f32, ui);
+                    (unsafe { CGPath::with_ellipse_in_rect(rect, std::ptr::null()) }, NSNumber::new_f32(opacity))
+                })
+                .unzip();
+            let paths: Vec<&AnyObject> = paths.iter().map(|p| unsafe { &*(&**p as *const CGPath as *const AnyObject) }).collect();
+            let opacities: Vec<&AnyObject> = opacities.iter().map(|o| o.as_ref()).collect();
+            self.ring.addAnimation_forKey(&keyframes("path", &paths, period), None);
+            self.ring.addAnimation_forKey(&keyframes("opacity", &opacities, period), None);
+        });
+    }
+
+    /// Step the bubble's pop, bounce or fade. Once it settles no more frames are asked for:
+    /// Core Animation keeps it floating and rippling on its own.
+    fn bubble_frame(&mut self) {
+        let Some(pose) = self.bubble.pose() else {
+            self.bubble_at = None;
+            self.bubble_win.orderOut(None);
+            return;
+        };
+        let grown = |k: f32| CATransform3D::new_scale(k as f64, k as f64, 1.0);
+        instantly(|| {
+            self.bubble_box.setTransform(grown(pose.body));
+            for (layer, k) in self.bubble_tails.iter().zip(pose.tails) {
+                layer.setTransform(grown(k));
+            }
+        });
+        let (x, y) = self.bubble.at;
+        place_window(self.mtm, &self.bubble_win, (x, y, self.bubble.drawn.w, self.bubble.drawn.h), pose.alpha, self.scale);
+        self.bubble_at = pose.moving.then(|| Instant::now() + Duration::from_millis(15));
     }
 }
 
@@ -624,6 +814,17 @@ pub fn run() {
     let bubble_win = panel(mtm, &plain_view(mtm), false, false);
     let tag_win = panel(mtm, &plain_view(mtm), false, false);
     let menu_win = panel(mtm, &menu::MenuView::new(mtm), true, true);
+    let art = sublayer(&mascot, scale);
+    // a small seal is the frame shrunk a long way: average it down rather than skip pixels
+    art.setMinificationFilter(unsafe { kCAFilterTrilinear });
+    let overlay = sublayer(&mascot, scale);
+    let bubble_box = sublayer(&bubble_win, scale);
+    let ring = CAShapeLayer::new();
+    bubble_box.addSublayer(&ring);
+    let bubble_tails = [sublayer(&bubble_win, scale), sublayer(&bubble_win, scale)];
+    for (layer, lag) in [&bubble_box, &bubble_tails[0], &bubble_tails[1]].into_iter().zip(FLOAT_LAGS) {
+        layer.addAnimation_forKey(&float_anim(sway(scale) / scale, lag), None);
+    }
 
     let (state, stamp) = read_state();
     // no word yet: forget the stamp so the first poll looks again
@@ -648,8 +849,14 @@ pub fn run() {
             edit: font(14.5, 400),
         },
         editor_target: EditorTarget::new(mtm),
+        art,
+        overlay,
         mc: Canvas::new(),
         bubble: Bubble::new(font(14.0 * scale, 700), font(12.0 * scale, 700)),
+        bubble_box,
+        bubble_tails,
+        ring,
+        ring_for: None,
         scale,
         x: 0,
         y: 0,
@@ -690,8 +897,14 @@ pub fn run() {
     let tick = RcBlock::new(|_timer| {
         with(|app| app.tick());
     });
-    let timer = unsafe { NSTimer::scheduledTimerWithTimeInterval_repeats_block(1.0 / 60.0, true, &tick) };
+    // `with` moves each firing to when the next thing is due; the one-second repeat is only
+    // a backstop
+    let timer = unsafe { NSTimer::scheduledTimerWithTimeInterval_repeats_block(1.0, true, &tick) };
+    // a few milliseconds' slack lets macOS wake for the seal together with other work
+    timer.setTolerance(0.004);
     // keep the seal moving while a text box or the color panel tracks the pointer, too
     unsafe { NSRunLoop::currentRunLoop().addTimer_forMode(&timer, NSRunLoopCommonModes) };
+    TIMER.with(|t| t.set(timer).ok());
+    with(|_| ());
     app.run();
 }
