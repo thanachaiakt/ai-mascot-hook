@@ -89,9 +89,11 @@ next check rather than treated as a state:
 | `asking` | Asking/waving | `Need your input!` | Pink |
 | `completed` | Showing off in sunglasses | `All done!` | Green |
 | `error` | Crying | `Something went wrong` | Red |
-| `idle` | Napping; now and then sliding, a toy car, a ball or waving | `Napping… zZ` | Gray |
+| `idle` | Napping; now and then sliding, a toy car, a ball or waving | none (bubble hidden) | none |
 
-An unknown or missing state is idle: its animations and its bubble text and accent.
+An unknown or missing state is idle: its animations, and no bubble. Idle has no words,
+so the bubble hides while the seal naps, even with **Show status** on; the editor has no
+field or text color for it.
 `completed` settles into idle once the file has said it for 10 s (by its modified time),
 since no hook reports that the user has walked away; a new write starts it over.
 The animation switches when a state change is detected; the bubble shows the
@@ -200,7 +202,7 @@ The preset colors are `#18346e`, `#2f80ed`, `#0f9d8a`, `#2e9e44`, `#e07b00`,
   saved. Empty lines are skipped. The preview picks the same way.
 - **English** and **ไทย** fill every state's field with that set's ten lines for the
   state, split by `|`: built-in lines written for its poses (clapping and thinking,
-  digging and swimming, waving, showing off, crying, napping and playing), clingy and
+  digging and swimming, waving, showing off, crying), clingy and
   sweet, the seal a little one talking to its Papa (หนู to ป๊า in the Thai), many of them
   two rows split by `
 `. The fields stay editable, and
@@ -264,13 +266,11 @@ working=Working…
 asking=Need your input!
 completed=All done!
 error=Something went wrong
-idle=Napping… zZ
 color.loading=#18346e
 color.working=#18346e
 color.asking=#18346e
 color.completed=#18346e
 color.error=#18346e
-color.idle=#18346e
 autohide=0
 idle.every=60
 break.times=12:00, 15:30
@@ -278,7 +278,8 @@ break.message=Time for a break!
 feed.message=Yum, thank you!
 ```
 
-The six state keys are optional; empty or unrecognized entries are ignored.
+The five state keys are optional; empty or unrecognized entries are ignored (including
+`idle=` and `color.idle=` from older versions).
 A plain `color=` line, written by older versions, sets the color of every state
 that has no `color.<state>` line. A color must be exactly six hexadecimal digits prefixed by `#`; invalid color
 values are ignored. A state's value may hold several lines split by `|`. `autohide` is
@@ -287,8 +288,8 @@ values above 60 are treated as 60. `idle.every` is how long the idle seal naps
 between plays, in seconds (10–120, default 60; values outside are brought into range). `break.times` lists the break times (none by
 default) and `break.message` what the bubble says then; `feed.message` is what it says
 while the seal eats its salmon. A leading byte-order mark is
-ignored. Missing or invalid settings use the defaults. Saving writes all six state
-values, all six `color.<state>` values, `autohide`, `idle.every`, `break.times`, `break.message` and
+ignored. Missing or invalid settings use the defaults. Saving writes all five state
+values, all five `color.<state>` values, `autohide`, `idle.every`, `break.times`, `break.message` and
 `feed.message`.
 
 ## Visual assets and build

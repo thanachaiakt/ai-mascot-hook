@@ -545,7 +545,9 @@ impl App {
         };
         // a break or a feed says its words whether or not the bubble is on
         let scene = self.turns.scene().filter(|_| self.editor.is_none() && !self.resize_mode);
-        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some() || scene.is_some()) && !self.menu.open;
+        // idle has no words, so the bubble hides while the seal naps
+        let says = self.status.count(&self.state) > 0;
+        let visible = ((self.show_status && !self.auto_hidden && says) || self.resize_mode || self.editor.is_some() || scene.is_some()) && !self.menu.open;
         if !visible {
             self.bubble.hide();
             self.bubble_frame();

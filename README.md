@@ -292,7 +292,8 @@ ring ripples out of the colored dot.
 Two tabs at the top; changes on both are kept until you press **Save** or **Cancel**.
 
 **Status messages**
-- One text box per state. Put several lines in it, split by `|`, and the bubble picks one
+- One text box per state, idle aside: the bubble says nothing and hides while the seal
+  naps. Put several lines in it, split by `|`, and the bubble picks one
   at random each time the state or the seal's pose changes. Type `\n` where the bubble
   should start a new line.
 - **Starter messages** **English** or **ไทย** (Thai) loads a starter set of messages into

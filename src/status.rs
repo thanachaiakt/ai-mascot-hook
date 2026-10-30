@@ -1,13 +1,14 @@
 //! The words the status bubble says for each state, and their color.
 //!
 //! Kept in `%LOCALAPPDATA%\ai-mascot-hook\status.txt` as `key=value` lines:
-//! `loading`, `working`, `asking`, `completed`, `error`, `idle`, a text color for each as
+//! `loading`, `working`, `asking`, `completed`, `error`, a text color for each as
 //! `color.<state>` (`#rrggbb`), `autohide` (seconds the bubble stays up after each state
 //! change, 0 to keep it up), `idle.every` (seconds the idle seal naps between plays),
 //! `break.times` (`12:00, 15:30`) and `break.message` for the
 //! break reminders, and `feed.message`, what the seal says as it eats. A state's words may
 //! hold several lines split by `|`, one said at random. A plain `color`, from older
-//! versions, colors every state.
+//! versions, colors every state. Idle has no words: the bubble stays hidden while the seal
+//! naps.
 
 use std::fs;
 use std::path::Path;
@@ -15,15 +16,17 @@ use std::path::Path;
 use crate::gfx::Rgba;
 use crate::phrases::split;
 
-/// The states the bubble has words for, in the order the editor lists them; idle last.
-pub const STATES: [(&str, &str, &str); 6] = [
+/// The states the bubble has words for, in the order the editor lists them.
+pub const STATES: [(&str, &str, &str); 5] = [
     ("loading", "Thinking", "Thinking…"),
     ("working", "Working", "Working…"),
     ("asking", "Asking", "Need your input!"),
     ("completed", "Done", "All done!"),
     ("error", "Error", "Something went wrong"),
-    ("idle", "Idle", "Napping… zZ"),
 ];
+
+/// The state the seal naps in, which the bubble has no words for.
+pub const IDLE: &str = "idle";
 
 pub const DEFAULT_COLOR: Rgba = Rgba(24, 52, 110, 255);
 
@@ -160,20 +163,24 @@ impl StatusText {
         if scene == "feed" { &self.feed_message } else { &self.break_message }
     }
 
-    /// The words for `state`, anything unknown napping: line `roll` of its lines.
+    /// The words for `state`: line `roll` of its lines, nothing for idle or anything unknown.
     pub fn text(&self, state: &str, roll: usize) -> &str {
-        let lines = split(&self.texts[index(state)]);
+        let lines = self.lines(state);
         lines.get(roll % lines.len().max(1)).copied().unwrap_or("")
     }
 
-    /// How many lines `state` has to pick from.
+    /// How many lines `state` has to pick from; none while it naps.
     pub fn count(&self, state: &str) -> usize {
-        split(&self.texts[index(state)]).len()
+        self.lines(state).len()
     }
 
-    /// The text color for `state`; anything unknown naps.
+    fn lines(&self, state: &str) -> Vec<&str> {
+        index(state).map(|i| split(&self.texts[i])).unwrap_or_default()
+    }
+
+    /// The text color for `state`.
     pub fn color(&self, state: &str) -> Rgba {
-        self.colors[index(state)]
+        index(state).map_or(DEFAULT_COLOR, |i| self.colors[i])
     }
 }
 
@@ -198,9 +205,9 @@ pub fn format_times(times: &[u32]) -> String {
     times.iter().map(|t| format!("{}:{:02}", t / 60, t % 60)).collect::<Vec<_>>().join(", ")
 }
 
-/// Where `state` sits in `STATES`; anything unknown is idle.
-pub fn index(state: &str) -> usize {
-    STATES.iter().position(|(k, _, _)| *k == state).unwrap_or(STATES.len() - 1)
+/// Where `state` sits in `STATES`; idle and anything unknown sit nowhere.
+pub fn index(state: &str) -> Option<usize> {
+    STATES.iter().position(|(k, _, _)| *k == state)
 }
 
 /// The state word in the bytes of the state file, whatever wrote it: UTF-8 with or without
@@ -227,7 +234,7 @@ pub fn parse_state(bytes: &[u8]) -> Option<String> {
 /// reader never sees it half written.
 pub fn write_state(dir: &Path, word: &str) -> std::io::Result<()> {
     let word = word.trim().to_ascii_lowercase();
-    if !STATES.iter().any(|(k, _, _)| *k == word) {
+    if word != IDLE && index(&word).is_none() {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("unknown state {word:?}")));
     }
     fs::create_dir_all(dir)?;
@@ -304,6 +311,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         super::write_state(&dir, "Working\n").unwrap();
         assert_eq!(std::fs::read(dir.join("state")).unwrap(), b"working");
+        super::write_state(&dir, "idle").unwrap();
+        assert_eq!(std::fs::read(dir.join("state")).unwrap(), b"idle");
         super::write_state(&dir, "asking").unwrap();
         assert_eq!(parse_state(&std::fs::read(dir.join("state")).unwrap()).as_deref(), Some("asking"));
         assert!(super::write_state(&dir, "dancing").is_err());
@@ -323,7 +332,7 @@ mod tests {
         assert_eq!(rgb(status.color("asking")), (0xd6, 0x33, 0x6c));
         status.save(&path);
         let again = super::StatusText::load(&path);
-        assert_eq!(rgb(again.color("idle")), (0x11, 0x22, 0x33));
+        assert_eq!(rgb(again.color("error")), (0x11, 0x22, 0x33));
         assert_eq!(rgb(again.color("asking")), (0xd6, 0x33, 0x6c));
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -335,6 +344,7 @@ mod tests {
         let path = dir.join("status.txt");
         let mut status = super::StatusText::defaults();
         assert_eq!(status.text("loading", 7), "Thinking…");
+        assert_eq!((status.text("idle", 0), status.count("idle")), ("", 0));
         status.texts[0] = "One | two |  | three".into();
         status.save(&path);
         let again = super::StatusText::load(&path);

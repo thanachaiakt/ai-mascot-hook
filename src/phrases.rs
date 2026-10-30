@@ -12,7 +12,7 @@ pub const PER_STATE: usize = 10;
 type Lines = [[&'static str; PER_STATE]; STATES.len()];
 
 // in the order of `STATES`: clapping then thinking, swimming in a hard hat with a shovel,
-// waving from an ice floe, showing off in sunglasses, crying, and napping (or playing);
+// waving from an ice floe, showing off in sunglasses, and crying (idle says nothing);
 // each line tells what the seal is doing in one of the state's poses, clingy and sweet, the
 // seal a little one talking to its Papa (หนู to ป๊า in the Thai), many lines two rows
 // (`\n`) so the bubble stays narrow
@@ -77,18 +77,6 @@ const ENGLISH: Lines = [
         "Tears flooding the ice…\\nso sad",
         "Crying my heart out,\\nhelp me, Papa?",
     ],
-    [
-        "Curled up napping… zZ",
-        "Dreaming of Papa… zZ",
-        "Belly slide on the ice,\\nwheee, waiting for you~",
-        "Driving my toy car\\ntill you're free~",
-        "Bouncing my ball alone,\\ncome play, Papa?",
-        "Eyes closed, snoozing…\\nwake me if you need me",
-        "Sliding back and forth…\\nso lonely",
-        "Vroom vroom,\\ndriving to Papa!",
-        "Waving at you,\\ncome see me later!",
-        "Rolling my ball,\\nmissing you~",
-    ],
 ];
 
 const THAI: Lines = [
@@ -151,18 +139,6 @@ const THAI: Lines = [
         "ฮือๆ ปิดตาไม่กล้ามอง\\nมันพังไปแล้ว",
         "น้ำตาท่วมน้ำแข็งแล้ว\\nหนูเสียใจจัง",
         "ร้องไห้งอแง\\nป๊าช่วยหนูดูหน่อย",
-    ],
-    [
-        "นอนขดหลับปุ๋ย… zZ",
-        "หลับฝันถึงป๊าอยู่… zZ",
-        "ไถลพุงบนน้ำแข็ง\\nวี้ดดด รอป๊าอยู่นะ",
-        "ขับรถของเล่นวนๆ\\nรอป๊าว่างอยู่น้า",
-        "เดาะบอลคนเดียว\\nป๊ามาเล่นด้วยกันมั้ย",
-        "นอนหลับตาพริ้ม\\nมีงานปลุกหนูได้น้า",
-        "ไถลพุงไปมา\\nเหงาจังเลย",
-        "บรื้นๆ ขับรถไปหาป๊า",
-        "โบกมือให้ป๊า\\nว่างแล้วมาหาหนูนะ",
-        "กลิ้งบอลเล่นรอ\\nคิดถึงป๊าจัง",
     ],
 ];
 

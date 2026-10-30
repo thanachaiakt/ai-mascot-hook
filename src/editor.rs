@@ -314,7 +314,8 @@ impl Draft {
         Draft {
             tab: 0,
             colors: status.colors,
-            selected: index(state),
+            // idle has no box: the first state's is picked instead
+            selected: index(state).unwrap_or(0),
             show: show_status,
             autohide: status.autohide > 0,
             seconds: if status.autohide > 0 { status.autohide } else { DEFAULT_AUTOHIDE },
