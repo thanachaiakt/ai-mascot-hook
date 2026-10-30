@@ -71,8 +71,8 @@ struct App {
     y: i32,
     height: i32,
     strip: Strip,
-    /// the animation playing: the state's, or while editing, the edited state's
-    clip: &'static Clip,
+    /// the act playing: the state's, or while editing, the edited state's
+    turns: Turns,
     state: String,
     stamp: Option<SystemTime>,
     frame: usize,
@@ -81,6 +81,8 @@ struct App {
     show_status: bool,
     /// the bubble has had its auto-hide time since the last state change
     auto_hidden: bool,
+    /// the minute of the day last looked at for a break
+    minute: u32,
     status: StatusText,
     menu: Menu,
     tracking_leave: bool,
@@ -159,13 +161,23 @@ impl App {
         }
     }
 
-    /// Play the shown state's animation, if it is not playing already.
+    /// Play the shown state's act, if it is not playing already.
     fn sync_clip(&mut self) {
-        let clip = clip_for(self.shown_state());
-        if std::ptr::eq(clip, self.clip) {
+        let act = act_for(self.shown_state());
+        if std::ptr::eq(act, self.turns.act) {
             return;
         }
-        self.clip = clip;
+        let was = self.turns.clip();
+        self.turns.switch(act);
+        // a feed or a break playing goes on
+        if !std::ptr::eq(was, self.turns.clip()) {
+            self.play();
+        }
+    }
+
+    /// Start the clip whose turn it is, from its first frame.
+    fn play(&mut self) {
+        let clip = self.turns.clip();
         self.strip.release();
         self.strip = clip.strip();
         self.frame = 0;
@@ -250,6 +262,15 @@ impl App {
     }
 
     fn poll(&mut self) {
+        let minute = minute_of_day();
+        if minute != self.minute {
+            self.minute = minute;
+            if self.status.breaks.contains(&minute) && !self.turns.on_break() {
+                self.turns.cut_in(BREAK);
+                self.play();
+                self.update_bubble();
+            }
+        }
         let (state, stamp) = read_state();
         if stamp != self.stamp {
             // an empty read is a write still in progress: leave the stamp so the next poll retries
@@ -331,6 +352,11 @@ impl App {
                     self.resize_mode = false;
                     self.draw_mascot();
                     self.update_bubble();
+                } else if self.turns.on_break() {
+                    // a click ends the break
+                    self.turns.end_cut_in();
+                    self.play();
+                    self.update_bubble();
                 } else {
                     self.toggle_menu();
                 }
@@ -360,6 +386,11 @@ impl App {
                 self.save();
             }
             ACT_EDIT => self.open_editor(),
+            ACT_FEED => {
+                self.turns.cut_in(FEED);
+                self.play();
+                self.update_bubble();
+            }
             ACT_RESIZE => {
                 self.resize_mode = true;
                 self.draw_mascot();
@@ -390,15 +421,25 @@ impl App {
 
     fn update_bubble(&mut self) {
         let tag = self.update_size_tag();
-        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some()) && !self.menu.open;
+        // a break or a feed says its words whether or not the bubble is on
+        let scene = self.turns.scene().filter(|_| self.editor.is_none() && !self.resize_mode);
+        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some() || scene.is_some()) && !self.menu.open;
         if !visible {
             self.bubble_view.hide();
             self.bubble_frame();
             return;
         }
-        let key = if self.resize_mode { "resize".to_string() } else { self.shown_state().to_string() };
+        let key = if self.resize_mode {
+            "resize".to_string()
+        } else if let Some(scene) = scene {
+            scene.to_string()
+        } else {
+            self.shown_state().to_string()
+        };
         let (text, dot) = if self.resize_mode {
             ("Scroll, Drag or Click".to_string(), None)
+        } else if let Some(scene) = scene {
+            (self.status.scene_text(scene).to_string(), Some(accent(scene)))
         } else if let Some(e) = &self.editor {
             // while editing, the bubble previews the state being edited, as typed and colored
             let i = e.draft.selected;
@@ -409,6 +450,7 @@ impl App {
         };
         let ink = match &self.editor {
             Some(e) => e.draft.colors[e.draft.selected],
+            None if scene.is_some() => DEFAULT_COLOR,
             None => self.status.color(&self.state),
         };
         let (w, h) = self.size();
@@ -468,7 +510,13 @@ unsafe extern "system" fn mascot_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
             with(|app| match wp {
                 TIMER_FRAME => {
                     app.frame = (app.frame + 1) % app.strip.frames.max(1);
-                    app.draw_mascot();
+                    if app.frame == 0 && app.turns.looped() {
+                        app.play();
+                        // a scene's words come and go with its clips
+                        app.update_bubble();
+                    } else {
+                        app.draw_mascot();
+                    }
                 }
                 TIMER_POLL => app.poll(),
                 TIMER_BUBBLE => app.bubble_frame(),
@@ -569,7 +617,8 @@ pub fn run() {
         // no word yet: forget the stamp so the first poll looks again
         let stamp = state.as_ref().and(stamp);
         let state = state.unwrap_or_default();
-        let clip = clip_for(&state);
+        let turns = Turns::new(act_for(&state));
+        let clip = turns.clip();
         let mut app = App {
             mascot,
             bubble,
@@ -581,7 +630,7 @@ pub fn run() {
             y,
             height,
             strip: clip.strip(),
-            clip,
+            turns,
             state: state.clone(),
             stamp,
             frame: 0,
@@ -589,6 +638,7 @@ pub fn run() {
             resize_mode: false,
             show_status,
             auto_hidden: false,
+            minute: minute_of_day(),
             status: StatusText::load(&data_dir().join("status.txt")),
             menu: Menu::new(font(14.0 * ui, 700, "Leelawadee UI"), ui),
             tracking_leave: false,

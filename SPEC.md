@@ -34,7 +34,14 @@ on the web has no hooks), `qwen` (`~/.qwen/settings.json`), `windsurf`
 own). Several names may be given, separated by commas. `all` covers Claude Code and every
 other agent whose folder exists (on removal, every agent that has a file); with no `--agent`
 only Claude Code is touched. A removal that leaves a file empty deletes it. Each agent's events map to the same
-five states (Cursor, Windsurf and Kiro have no asking event, so they never show asking). Some agents need an
+six states, as `README.md` tabulates under "Other AI assistants". Qwen Code takes Claude
+Code's events as they are. Cursor, Windsurf and Kiro have no asking event, so they never
+show asking. Only `StopFailure` (Claude Code and Qwen Code, a turn ended by an API error)
+and Copilot CLI's `errorOccurred` set error. Cursor's `stop` covers turns that ended on an
+error or were aborted too, and sets completed. Copilot CLI's asking comes from its
+`notification` with matcher `permission_prompt|elicitation_dialog`, not `permissionRequest`,
+which runs before every tool, even one Copilot allows on its own. Windsurf has no session
+events, so it never sets idle. Kiro's `SessionEnd` exists only in its CLI and is left out. Some agents need an
 answer on stdout, which `--set <state> --reply <kind>` prints: `allow` (Cursor's
 `preToolUse`, which blocks the tool on an empty answer), `continue` (Cursor's
 `beforeSubmitPrompt`), `empty` (`{}`, Codex's `Stop`). Codex asks you to review new hooks
@@ -80,12 +87,29 @@ next check rather than treated as a state:
 | `loading` | Thinking/clapping | `Thinking…` | Blue |
 | `working` | Working/swimming | `Working…` | Amber |
 | `asking` | Asking/waving | `Need your input!` | Pink |
-| `completed` | Completion/napping | `All done!` | Green |
-| `idle` | Napping | `Napping… zZ` | Gray |
+| `completed` | Showing off in sunglasses | `All done!` | Green |
+| `error` | Crying | `Something went wrong` | Red |
+| `idle` | Napping; now and then sliding, a toy car or a ball | `Napping… zZ` | Gray |
 
-An unknown or missing state uses the napping animation and the idle bubble text
-and accent. The animation switches when a state change is detected; the bubble
-shows the matching configured text when visible.
+An unknown or missing state is idle: its animations and its bubble text and accent.
+The animation switches when a state change is detected; the bubble shows the
+matching configured text when visible.
+
+`working` and `idle` have more than one animation; a new one takes over only when the
+playing one comes back to its first frame. `working` swims, then sits and thinks, in
+turn, each for at least 10 s. `idle` naps; after every minute of napping the seal wakes
+and plays one of sliding, the toy car or the ball, chosen at random, for at least 10 s,
+then naps again.
+
+Two short scenes can play over any state, which goes on afterwards:
+
+- **Feed** (in the icon menu): the seal eats a salmon (about 20 s) while the bubble
+  shows the feed message (with a salmon dot) even when the status bubble is off.
+- **Break**: at each break time set in the editor, the seal rings an alarm clock for a
+  minute, and the bubble shows the break message (with an orange dot) even when the
+  status bubble is off. Clicking the seal ends the break at once, instead of opening the
+  menu. Break times are checked on every state poll against the computer's local clock,
+  and each fires once, when its minute begins.
 
 The bubble is drawn as pixel art to match the seal: on the seal's own pixel grid
 (one art pixel is the seal's height ÷ 75, rounded, at least 1 px), with a dark
@@ -108,18 +132,20 @@ times a second while it floats; none are drawn while it is hidden.
 
 ## Desktop interaction
 
-- A short left-click or a right-click toggles the icon menu.
+- A short left-click or a right-click toggles the icon menu; while a break is ringing, a
+  short left-click ends the break instead.
 - Pressing and holding for 220 ms, or moving more than 4 px while pressed,
   starts dragging the seal. The pointer grab point remains fixed during the
   drag. The new position is saved on release.
-- The menu shows three buttons, in this order:
-  1. **Resize** enables resize mode.
-  2. **Settings** unfolds (or folds) a second row, on the side away from the
+- The menu shows four buttons, in this order:
+  1. **Feed** gives the seal a salmon (see Break and Feed above).
+  2. **Resize** enables resize mode.
+  3. **Settings** unfolds (or folds) a second row, on the side away from the
      seal, with two buttons:
      - **Show status** toggles the bubble and saves that preference (its label
        reads **Hide status** while the bubble is on).
      - **Edit status** opens the text and color editor.
-  3. **Close** exits the program.
+  4. **Close** exits the program.
 - Selecting **Settings** keeps the menu open. The menu closes when any other
   button is selected or it loses activation; Escape folds the settings row
   first, then closes the menu. It is positioned within the current monitor's work area and opens
@@ -140,9 +166,11 @@ times a second while it floats; none are drawn while it is hidden.
 ## Status text editor
 
 The editor is a borderless, rounded window drawn in the seal's style, dragged by
-its header and closed by its × button. It provides one text field per state
+its header and closed by its × button. It is laid out in two columns (the states' text
+and colors on the left, the bubble and the break and feed on the right), so it stays
+short enough for small or zoomed screens. It provides one text field per state
 (each beside its state's accent dot), eight preset text-color swatches, a **+**
-button for the system color picker, a **Bubble** section, and **Reset**,
+button for the system color picker, a **Bubble** section, a **Break & Feed** section, and **Reset**,
 **Cancel**, and **Save** actions.
 The preset colors are `#18346e`, `#2f80ed`, `#0f9d8a`, `#2e9e44`, `#e07b00`,
 `#d6336c`, `#7048e8`, and `#333333`.
@@ -164,7 +192,12 @@ The preset colors are `#18346e`, `#2f80ed`, `#0f9d8a`, `#2e9e44`, `#e07b00`,
   default 5). With auto hide on, the bubble shows after each state change (and
   when shown or saved) and hides again after that many seconds. Both apply on
   **Save**.
-- **Reset** fills all fields and every state's text color with defaults; it does not save
+- **Break & Feed** has a **Break at** field (times of day such as `12:00, 15:30`;
+  separated by commas, semicolons or spaces, `.` accepted for `:`, anything else
+  ignored), a **Break text** field (empty reverts to `Time for a break!`) and a **Fed
+  text** field, what the seal says once fed (empty reverts to `Yum, thank you!`). They
+  apply on **Save**; the times are saved sorted, each once.
+- **Reset** fills all fields (no break times) and every state's text color with defaults; it does not save
   until **Save** is selected.
 - **Cancel**, the × button, or pressing Escape discards edits; Enter saves.
 - A state's text color applies to its bubble text. The accent dot keeps its
@@ -203,22 +236,30 @@ loading=Thinking…
 working=Working…
 asking=Need your input!
 completed=All done!
+error=Something went wrong
 idle=Napping… zZ
 color.loading=#18346e
 color.working=#18346e
 color.asking=#18346e
 color.completed=#18346e
+color.error=#18346e
 color.idle=#18346e
 autohide=0
+break.times=12:00, 15:30
+break.message=Time for a break!
+feed.message=Yum, thank you!
 ```
 
-The five state keys are optional; empty or unrecognized entries are ignored.
+The six state keys are optional; empty or unrecognized entries are ignored.
 A plain `color=` line, written by older versions, sets the color of every state
 that has no `color.<state>` line. A color must be exactly six hexadecimal digits prefixed by `#`; invalid color
 values are ignored. `autohide` is the auto-hide time in seconds, 0 for off;
-values above 20 are treated as 20. Missing or invalid settings use the defaults.
-Saving writes all five state values, all five `color.<state>` values, and
-`autohide`.
+values above 20 are treated as 20. `break.times` lists the break times (none by
+default) and `break.message` what the bubble says then; `feed.message` is what it says
+while the seal eats its salmon. A leading byte-order mark is
+ignored. Missing or invalid settings use the defaults. Saving writes all six state
+values, all six `color.<state>` values, `autohide`, `break.times`, `break.message` and
+`feed.message`.
 
 ## Visual assets and build
 

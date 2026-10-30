@@ -16,7 +16,7 @@ flowchart LR
     CC["Claude Code<br/>(CLI หรือ desktop app)"] -- "เหตุการณ์ hook<br/>UserPromptSubmit, PreToolUse, Stop, …" --> H["ai-mascot-hook --set &lt;สถานะ&gt;"]
     H -- "status::write_state<br/>เขียนไฟล์ชั่วคราวแล้ว rename" --> F[("ไฟล์ state<br/>%LOCALAPPDATA%\ai-mascot-hook\state<br/>~/Library/Application Support/ai-mascot-hook/state")]
     F -- "อ่านทุก 400 ms<br/>store::read_state" --> S["แมวน้ำที่รันอยู่<br/>win::App / mac::App"]
-    S -- "seal::clip_for" --> A["ภาพเคลื่อนไหว"]
+    S -- "seal::act_for, Turns" --> A["ภาพเคลื่อนไหว"]
     S -- "bubble::Bubble" --> B["กล่องข้อความสถานะ"]
     A --> W["หน้าต่างแมวน้ำ"]
     B --> BW["หน้าต่างกล่องข้อความ"]
@@ -24,11 +24,18 @@ flowchart LR
 
 | เหตุการณ์ของ Claude Code | สถานะ | ท่าทาง |
 |---|---|---|
-| `SessionStart`, `SessionEnd` | `idle` | นอนหลับ |
+| `SessionStart`, `SessionEnd` | `idle` | นอนหลับ ทุก 1 นาทีตื่นมาไถลตัว เล่นรถของเล่น หรือลูกบอล |
 | `UserPromptSubmit` | `loading` | ตบมือ |
-| `PreToolUse`, `PostToolUse` | `working` | ว่ายน้ำใส่หมวกนิรภัย |
+| `PreToolUse`, `PostToolUse` | `working` | ว่ายน้ำใส่หมวกนิรภัย สลับกับนั่งคิด |
 | `PermissionRequest`, `Notification` | `asking` | โบกมือบนก้อนน้ำแข็ง |
-| `Stop` | `completed` | นอนหลับ |
+| `Stop` | `completed` | ใส่แว่นกันแดดเท่ๆ |
+| `StopFailure` | `error` | ร้องไห้ |
+
+`Act` ของแต่ละสถานะบอกว่ามีท่าอะไรบ้าง `Turns` (ใน `seal.rs`) จำว่ากำลังเล่นท่าไหน ทุกครั้งที่ท่าวนกลับมา
+เฟรมแรก แต่ละแพลตฟอร์มจะถาม `Turns::looped` ว่าถึงตาท่าถัดไปหรือยัง (เล่นมาแล้วอย่างน้อย `TURN_MS`)
+ถ้าถึงก็ถอดท่าใหม่มาเล่น (ตอน idle จะนอน (`rest`) `REST_MS` ก่อนตื่นมาเล่นแต่ละครั้ง)
+`CutIn` คือฉากสั้นที่เล่นทับท่าของสถานะแล้วค่อยกลับไปเล่นต่อ: `FEED` จากปุ่ม Feed ในเมนู และ `BREAK` เมื่อรอบ poll
+พบว่าถึงเวลาพัก (`status.breaks` เทียบกับ `seal::minute_of_day`) คลิกที่แมวน้ำจะจบเวลาพัก
 
 Claude desktop app เป็นแอปแบบ MSIX Windows จะย้ายไฟล์ state ที่ hook ของแอปนี้เขียน ไปไว้ที่
 `%LOCALAPPDATA%\Packages\<แอป>\LocalCache\Local\ai-mascot-hook\state`
@@ -41,12 +48,12 @@ flowchart TB
     main["main.rs<br/>จุดเริ่มต้น"]
 
     subgraph shared["ใช้ร่วมกัน"]
-        seal["seal.rs<br/>ขนาด เวลา ท่าของแต่ละสถานะ"]
+        seal["seal.rs<br/>ขนาด เวลา ท่าของแต่ละสถานะ<br/>ฉากให้อาหารและเวลาพัก นาฬิกา"]
         store["store.rs<br/>folder ข้อมูล ไฟล์ state ตำแหน่ง"]
-        status["status.rs<br/>ข้อความ สี auto hide<br/>อ่านไฟล์ state"]
+        status["status.rs<br/>ข้อความ สี auto hide<br/>เวลาพักและข้อความ อ่านไฟล์ state"]
         bubble["bubble.rs<br/>จัดวาง วาด และ animate กล่องข้อความ"]
         menu["menu.rs<br/>จัดวาง วาด และ animate เมนูปุ่มกลม"]
-        editor["editor.rs<br/>จัดวาง วาด และรับคลิกหน้าตั้งค่า"]
+        editor["editor.rs<br/>จัดวาง (สองคอลัมน์) วาด<br/>และรับคลิกหน้าตั้งค่า"]
         hooks["hooks.rs<br/>ไฟล์ hook ของแต่ละ agent"]
         anim["anim.rs<br/>เส้นโค้งความเร็ว"]
         gfx["gfx/mod.rs<br/>Canvas รูปทรง Strip"]
@@ -175,7 +182,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    app["App::update_bubble<br/>เลือกข้อความ จุดสี สีตัวอักษร key<br/>(preview ในหน้าตั้งค่า คำแนะนำตอนปรับขนาด หรือสถานะ)"]
+    app["App::update_bubble<br/>เลือกข้อความ จุดสี สีตัวอักษร key<br/>(preview ในหน้าตั้งค่า คำแนะนำตอนปรับขนาด<br/>ข้อความตอนพักหรือตอนให้อาหาร หรือสถานะ)"]
     app -- "แสดง" --> show["Bubble::show<br/>วัดข้อความ วางเหนือหรือใต้แมวน้ำ<br/>ไม่ให้ล้นจอ หลบป้ายบอกขนาด"]
     app -- "ซ่อน" --> hidebox["Bubble::hide"]
     show --> drawn["drawn: กล่องแบบ pixel art สติกเกอร์<br/>+ จุดสีแบบเรียบ + ข้อความ"]
@@ -204,7 +211,7 @@ flowchart LR
     state -- "อ่าน" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y ความสูง show_status")]
     placement -- "read_placement ตอนเริ่ม" --> app2
-    editor2["หน้าตั้งค่า กด Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>ข้อความ color.&lt;สถานะ&gt; autohide")]
+    editor2["หน้าตั้งค่า กด Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>ข้อความ color.&lt;สถานะ&gt; autohide<br/>break.times break.message feed.message")]
     statustxt -- "StatusText::load" --> app2
 ```
 
@@ -216,9 +223,10 @@ flowchart LR
 | อยากแก้ | ดูที่ |
 |---|---|
 | เหตุการณ์ไหนตั้งสถานะอะไร | `hooks.rs` (`Plan` ของแต่ละ agent), `tools/install-hooks.ps1` |
-| ท่า ความเร็ว หรือขนาดของแต่ละสถานะ | `seal.rs` (`Clip`, `clip_for`) |
+| ท่า ความเร็ว หรือขนาดของแต่ละสถานะ | `seal.rs` (`Clip`, `Act`, `act_for`) |
 | หน้าตาหรือการเคลื่อนไหวของกล่องข้อความ | `bubble.rs` |
-| ข้อความและสีเริ่มต้น | `status.rs` (`STATES`, `DEFAULT_COLOR`) |
+| ข้อความและสีเริ่มต้น | `status.rs` (`STATES`, `DEFAULT_COLOR`, `DEFAULT_BREAK_MESSAGE`, `DEFAULT_FEED_MESSAGE`) |
+| ฉากให้อาหารและเวลาพัก ระยะนอนตอน idle | `seal.rs` (`FEED`, `BREAK`, `REST_MS`, `TURN_MS`) |
 | หน้าตาเมนูปุ่มกลม หรือหน้าตั้งค่า | `menu.rs` / `editor.rs` |
 | หน้าต่างเมนู / หน้าตั้งค่าบน Windows | `win/menu.rs` / `win/editor.rs` |
 | หน้าต่างและการกดบน Mac | `mac/mod.rs`, `mac/menu.rs`, `mac/editor.rs` |

@@ -18,7 +18,7 @@ flowchart LR
     CC["Claude Code<br/>(CLI or desktop app)"] -- "hook event<br/>UserPromptSubmit, PreToolUse, Stop, …" --> H["ai-mascot-hook --set &lt;state&gt;"]
     H -- "status::write_state<br/>temp file + rename" --> F[("state file<br/>%LOCALAPPDATA%\ai-mascot-hook\state<br/>~/Library/Application Support/ai-mascot-hook/state")]
     F -- "polled every 400 ms<br/>store::read_state" --> S["running seal<br/>win::App / mac::App"]
-    S -- "seal::clip_for" --> A["animation strip"]
+    S -- "seal::act_for, Turns" --> A["animation strip"]
     S -- "bubble::Bubble" --> B["status bubble"]
     A --> W["seal window"]
     B --> BW["bubble window"]
@@ -26,11 +26,19 @@ flowchart LR
 
 | Claude Code event | State | Animation |
 |---|---|---|
-| `SessionStart`, `SessionEnd` | `idle` | napping |
+| `SessionStart`, `SessionEnd` | `idle` | napping; every minute sliding, a toy car or a ball |
 | `UserPromptSubmit` | `loading` | clapping |
-| `PreToolUse`, `PostToolUse` | `working` | swimming in a hard hat |
+| `PreToolUse`, `PostToolUse` | `working` | swimming in a hard hat, then thinking, in turn |
 | `PermissionRequest`, `Notification` | `asking` | waving on an ice floe |
-| `Stop` | `completed` | napping |
+| `Stop` | `completed` | showing off in sunglasses |
+| `StopFailure` | `error` | crying |
+
+A state's `Act` lists its clips (and, for idle, a `rest` clip it naps on for `REST_MS`
+between them). `Turns` (in `seal.rs`) keeps which one is playing; each time the clip
+comes back to its first frame, the platform asks `Turns::looped` whether another takes
+over, and if so unpacks it. A `CutIn` plays over the act and then lets it go on: `FEED`
+from the menu's Feed button, `BREAK` when the poll finds the clock at a break time
+(`status.breaks`, checked with `seal::minute_of_day`); a click on the seal ends a break.
 
 The Claude desktop app is a packaged (MSIX) app. Windows redirects the state file that its
 hooks write into `%LOCALAPPDATA%\Packages\<app>\LocalCache\Local\ai-mascot-hook\state`.
@@ -44,12 +52,12 @@ flowchart TB
     main["main.rs<br/>entry point"]
 
     subgraph shared["Shared"]
-        seal["seal.rs<br/>sizes, timings, clips"]
+        seal["seal.rs<br/>sizes, timings, clips,<br/>acts, feed and break scenes, clock"]
         store["store.rs<br/>data folder, state file, placement"]
-        status["status.rs<br/>words, colors, auto hide,<br/>state parsing"]
+        status["status.rs<br/>words, colors, auto hide,<br/>break and feed settings, state parsing"]
         bubble["bubble.rs<br/>bubble layout, drawing, animation"]
         menu["menu.rs<br/>icon menu layout, drawing, animation"]
-        editor["editor.rs<br/>status editor layout, painting, clicks"]
+        editor["editor.rs<br/>status editor layout (two columns),<br/>painting, clicks"]
         hooks["hooks.rs<br/>hook files of each agent"]
         anim["anim.rs<br/>easing"]
         gfx["gfx/mod.rs<br/>Canvas, shapes, Strip"]
@@ -180,7 +188,7 @@ box (`overhang`). Pointer positions are mapped back into the box (`in_box`).
 
 ```mermaid
 flowchart TD
-    app["App::update_bubble<br/>picks text, dot, color, key<br/>(editor preview, resize hint, or state)"]
+    app["App::update_bubble<br/>picks text, dot, color, key<br/>(editor preview, resize hint,<br/>break or feed message, or state)"]
     app -- "visible" --> show["Bubble::show<br/>measure text, place above or below the seal,<br/>clamp to the work area, avoid the size readout"]
     app -- "hidden" --> hidebox["Bubble::hide"]
     show --> drawn["drawn: box in pixel-art sticker style<br/>+ smooth accent dot + text"]
@@ -205,7 +213,7 @@ flowchart LR
     state -- "read" --> app2["App::poll"]
     app2 -- "save_placement" --> placement[("placement<br/>x y height show_status")]
     placement -- "read_placement at start" --> app2
-    editor2["editor Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>words, color.&lt;state&gt;, autohide")]
+    editor2["editor Save"] -- "StatusText::save" --> statustxt[("status.txt<br/>words, color.&lt;state&gt;, autohide,<br/>break.times, break.message, feed.message")]
     statustxt -- "StatusText::load" --> app2
 ```
 
@@ -217,9 +225,10 @@ All of these files except `settings.json` live in the data folder (`store::data_
 | To change | Look in |
 |---|---|
 | Which event sets which state | `hooks.rs` (the `Plan` of each agent), `tools/install-hooks.ps1` |
-| A state's animation, speed or size | `seal.rs` (`Clip`, `clip_for`) |
+| A state's animations, speed or size | `seal.rs` (`Clip`, `Act`, `act_for`) |
 | The bubble's look or motion | `bubble.rs` |
-| Default words and colors | `status.rs` (`STATES`, `DEFAULT_COLOR`) |
+| Default words and colors | `status.rs` (`STATES`, `DEFAULT_COLOR`, `DEFAULT_BREAK_MESSAGE`, `DEFAULT_FEED_MESSAGE`) |
+| The feed and break scenes, idle's nap length | `seal.rs` (`FEED`, `BREAK`, `REST_MS`, `TURN_MS`) |
 | The icon menu's or the editor's look | `menu.rs` / `editor.rs` |
 | Windows menu / editor windows | `win/menu.rs` / `win/editor.rs` |
 | Mac windows and input | `mac/mod.rs`, `mac/menu.rs`, `mac/editor.rs` |

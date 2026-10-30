@@ -54,11 +54,17 @@ pub struct EditorLayout {
     pub h: i32,
     pub header: f32,
     close: Area,
+    /// the left and right columns' edges: the states' words and colors on the left, the
+    /// bubble and the break and feed on the right
+    cols: [(f32, f32); 2],
     /// the tops of the section headings
     messages: f32,
     colors: f32,
     bubble: f32,
-    pub fields: [Area; 5],
+    breaks: f32,
+    pub fields: [Area; STATES.len()],
+    /// the boxes past the states': the break's times and message, what the seal says fed
+    pub extra_fields: [Area; 3],
     swatches: [Area; 8],
     custom: Area,
     show_row: Area,
@@ -76,42 +82,55 @@ pub struct EditorLayout {
     save: Area,
 }
 
+/// Two columns side by side, so the editor stays short enough for a small or zoomed screen.
 pub fn editor_layout(ui: f32) -> EditorLayout {
     let s = |v: f32| (v * ui).round();
-    let w = s(384.0);
-    let pad = s(20.0);
+    let (pad, col, gap) = (s(20.0), s(344.0), s(28.0));
+    let w = 2.0 * pad + 2.0 * col + gap;
     let right = w - pad;
+    let (lx, rx) = ((pad, pad + col), (pad + col + gap, right));
     let header = s(58.0);
     let close = (right - s(30.0), s(14.0), right, s(44.0));
+
+    // left: each state's words, then the text color
     let messages = header;
     let field_h = s(38.0);
     let fields = std::array::from_fn(|i| {
         let y = messages + s(26.0) + i as f32 * (field_h + s(8.0));
-        (pad + s(100.0), y, right, y + field_h)
+        (lx.0 + s(100.0), y, lx.1, y + field_h)
     });
-    let colors = fields[4].3 + s(22.0);
+    let colors = fields[STATES.len() - 1].3 + s(22.0);
     let (d, step) = (s(26.0), s(35.0));
     let sy = colors + s(30.0);
     let swatches = std::array::from_fn(|i| {
-        let x = pad + s(4.0) + i as f32 * step;
+        let x = lx.0 + s(4.0) + i as f32 * step;
         (x, sy, x + d, sy + d)
     });
-    let cx = pad + s(4.0) + 8.0 * step;
+    let cx = lx.0 + s(4.0) + 8.0 * step;
     let custom = (cx, sy, cx + d, sy + d);
-    let bubble = sy + d + s(24.0);
+
+    // right: the bubble's switches, then the break and the feed
+    let bubble = header;
     let row_h = s(42.0);
-    let show_row = (pad, bubble + s(22.0), right, bubble + s(22.0) + row_h);
-    let auto_row = (pad, show_row.3, right, show_row.3 + row_h);
+    let show_row = (rx.0, bubble + s(22.0), rx.1, bubble + s(22.0) + row_h);
+    let auto_row = (rx.0, show_row.3, rx.1, show_row.3 + row_h);
     let switch = |r: Area| {
         let cy = (r.1 + r.3) / 2.0;
-        (right - s(42.0), cy - s(12.0), right, cy + s(12.0))
+        (rx.1 - s(42.0), cy - s(12.0), rx.1, cy + s(12.0))
     };
     let (show, autohide) = (switch(show_row), switch(auto_row));
     let cy = (auto_row.1 + auto_row.3) / 2.0;
     let seconds = (autohide.0 - s(16.0) - s(112.0), cy - s(16.0), autohide.0 - s(16.0), cy + s(16.0));
     let less = (seconds.0, seconds.1, seconds.0 + s(36.0), seconds.3);
     let more = (seconds.2 - s(36.0), seconds.1, seconds.2, seconds.3);
-    let divider = auto_row.3 + s(16.0);
+    let breaks = auto_row.3 + s(16.0);
+    let extra_fields = std::array::from_fn(|i| {
+        let y = breaks + s(26.0) + i as f32 * (field_h + s(8.0));
+        (rx.0 + s(100.0), y, rx.1, y + field_h)
+    });
+
+    // the footer, under the longer column
+    let divider = (sy + d).max(extra_fields[2].3) + s(20.0);
     let (by, bh) = (divider + s(16.0), s(38.0));
     let save = (right - s(96.0), by, right, by + bh);
     let cancel = (save.0 - s(10.0) - s(96.0), by, save.0 - s(10.0), by + bh);
@@ -121,10 +140,13 @@ pub fn editor_layout(ui: f32) -> EditorLayout {
         h: (by + bh + pad) as i32,
         header,
         close,
+        cols: [lx, rx],
         messages,
         colors,
         bubble,
+        breaks,
         fields,
+        extra_fields,
         swatches,
         custom,
         show_row,
@@ -200,7 +222,7 @@ pub fn editor_hit(ui: f32, x: f32, y: f32) -> Option<Hit> {
 /// text boxes.
 pub struct Draft {
     /// each state's text color as picked so far
-    pub colors: [Rgba; 5],
+    pub colors: [Rgba; STATES.len()],
     /// the state whose words were last focused: the one the swatches color, and the
     /// bubble previews
     pub selected: usize,
@@ -208,9 +230,13 @@ pub struct Draft {
     pub autohide: bool,
     pub seconds: u32,
     pub hover: Option<Hit>,
-    /// the text box with the keyboard focus
+    /// the text box with the keyboard focus: a state's, or past those (from `EXTRAS`) the
+    /// break's and the feed's
     pub focus: Option<usize>,
 }
+
+/// The first of the boxes past the states' (`StatusText::extras`).
+pub const EXTRAS: usize = STATES.len();
 
 impl Draft {
     pub fn new(status: &StatusText, show_status: bool, state: &str) -> Draft {
@@ -237,14 +263,34 @@ impl Draft {
         }
     }
 
-    /// Write the choices, and `texts` (each box's words), into `status`.
-    pub fn commit(&self, status: &mut StatusText, texts: [String; 5]) {
+    /// Note the text box with the keyboard focus. True when that selects another state;
+    /// the break's boxes leave the selection be.
+    pub fn focus_on(&mut self, focus: Option<usize>) -> bool {
+        self.focus = focus;
+        match focus {
+            Some(i) if i < STATES.len() && i != self.selected => {
+                self.selected = i;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Write the choices, `texts` (each state's box's words) and `extras` (the boxes past
+    /// those, as `StatusText::extras`) into `status`.
+    pub fn commit(&self, status: &mut StatusText, texts: [String; STATES.len()], extras: [String; 3]) {
+        let clean = |text: String| text.replace(['\r', '\n'], " ").trim().to_string();
         for (i, text) in texts.into_iter().enumerate() {
-            let text = text.replace(['\r', '\n'], " ").trim().to_string();
+            let text = clean(text);
             status.texts[i] = if text.is_empty() { STATES[i].2.to_string() } else { text };
         }
         status.colors = self.colors;
         status.autohide = if self.autohide { self.seconds.clamp(1, MAX_AUTOHIDE) } else { 0 };
+        let [times, message, fed] = extras;
+        status.breaks = parse_times(&times);
+        let or = |text: String, default: &str| if text.is_empty() { default.to_string() } else { text };
+        status.break_message = or(clean(message), DEFAULT_BREAK_MESSAGE);
+        status.feed_message = or(clean(fed), DEFAULT_FEED_MESSAGE);
     }
 
     /// Paint the whole editor, apart from the text in its boxes, into `c`.
@@ -265,19 +311,20 @@ impl Draft {
         let ink = if hover == Some(Hit::Close) { INK } else { MUTED };
         cross(c, l.close, s(5.0), s(1.6), ink, true);
 
-        let heading = |c: &mut Canvas, y: f32, text: &str| {
-            c.label(fonts.heading, text, rect((pad, y, right, y + s(18.0))), FAINT, Align::Left);
+        // a section's heading, and a hint at the far end of its column
+        let heading = |c: &mut Canvas, (x0, x1): (f32, f32), y: f32, text: &str, hint: &str| {
+            c.label(fonts.heading, text, rect((x0, y, x1, y + s(18.0))), FAINT, Align::Left);
+            c.label(fonts.hint, hint, rect((x0, y, x1, y + s(18.0))), FAINT, Align::Right);
         };
+        let [lx, rx] = l.cols;
 
         // the words for each state, each beside its state's dot
-        heading(c, l.messages, "MESSAGES");
-        let hint = rect((pad, l.messages, right, l.messages + s(18.0)));
-        c.label(fonts.hint, "Type \\n for a new line", hint, FAINT, Align::Right);
+        heading(c, lx, l.messages, "MESSAGES", "Type \\n for a new line");
         for (i, f) in l.fields.iter().enumerate() {
             let cy = (f.1 + f.3) / 2.0;
-            c.fill_sdf((pad, cy - s(5.0), pad + s(10.0), cy + s(5.0)), accent(STATES[i].0), 1.0, circle(pad + s(4.0), cy, s(4.0)));
+            c.fill_sdf((lx.0, cy - s(5.0), lx.0 + s(10.0), cy + s(5.0)), accent(STATES[i].0), 1.0, circle(lx.0 + s(4.0), cy, s(4.0)));
             let ink = if self.selected == i || hover == Some(Hit::State(i)) { INK } else { MUTED };
-            c.label(fonts.label, STATES[i].1, rect((pad + s(16.0), f.1, f.0, f.3)), ink, Align::Left);
+            c.label(fonts.label, STATES[i].1, rect((lx.0 + s(16.0), f.1, f.0, f.3)), ink, Align::Left);
             if self.focus == Some(i) {
                 pill(c, grow(*f, s(3.0)), s(13.0), FOCUS_RING);
             }
@@ -290,7 +337,7 @@ impl Draft {
         }
 
         // the text color: the presets, then the system picker
-        heading(c, l.colors, &format!("TEXT COLOR  ·  {}", STATES[self.selected].1.to_uppercase()));
+        heading(c, lx, l.colors, &format!("TEXT COLOR  ·  {}", STATES[self.selected].1.to_uppercase()), "");
         let color = self.colors[self.selected];
         let picked = |sw: Rgba| (sw.0, sw.1, sw.2) == (color.0, color.1, color.2);
         let custom = !SWATCHES.iter().any(|sw| picked(*sw));
@@ -322,7 +369,7 @@ impl Draft {
         cross(c, r, s(5.0), s(1.6), plus, false);
 
         // the bubble: shown or not, and hidden again a few seconds after each change
-        heading(c, l.bubble, "BUBBLE");
+        heading(c, rx, l.bubble, "BUBBLE", "");
         c.label(fonts.label, "Show status", rect(l.show_row), INK, Align::Left);
         toggle(c, l.show, self.show);
         c.label(fonts.label, "Auto hide", rect(l.auto_row), INK, Align::Left);
@@ -343,6 +390,18 @@ impl Draft {
         }
         let ink = if self.autohide { INK } else { FAINT };
         c.label(fonts.button, &format!("{} s", self.seconds), rect((l.less.2, st.1, l.more.0, st.3)), ink, Align::Center);
+
+        // the break (at these times of day the seal rings its clock and says this), and what
+        // it says as it eats
+        heading(c, rx, l.breaks, "BREAK & FEED", "Times like 12:00, 15:30");
+        for (k, (f, name)) in l.extra_fields.iter().zip(["Break at", "Break text", "Fed text"]).enumerate() {
+            c.label(fonts.label, name, rect((rx.0, f.1, f.0, f.3)), INK, Align::Left);
+            if self.focus == Some(EXTRAS + k) {
+                pill(c, grow(*f, s(3.0)), s(13.0), FOCUS_RING);
+            }
+            pill(c, *f, s(10.0), if self.focus == Some(EXTRAS + k) { BLUE } else { LINE });
+            pill(c, grow(*f, -s(1.0)), s(9.0), FIELD);
+        }
 
         // footer
         let line = l.divider;

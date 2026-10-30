@@ -2,10 +2,10 @@
 
     python tools/render_ui.py        (needs Pillow)
 
-writes assets/menu.png: twelve 96 x 96 buttons side by side, drawn at twice their
+writes assets/menu.png: fourteen 96 x 96 buttons side by side, drawn at twice their
 on-screen size: status off, status off hovered, status on, status on hovered,
 edit, edit hovered, resize, resize hovered, close, close hovered, settings,
-settings hovered (also used while its submenu is open).
+settings hovered (also used while its submenu is open), feed, feed hovered.
 """
 from pathlib import Path
 
@@ -21,6 +21,7 @@ RED = (212, 61, 98, 255)
 WHITE = (255, 255, 255, 255)
 HOVER = (227, 242, 253, 255)
 DANGER = (255, 227, 232, 255)
+SALMON = (236, 112, 72, 255)
 
 
 def button(icon, fill, ring, ink):
@@ -106,6 +107,18 @@ def pencil_icon(d, c, ink):
     line(d, (c - 4 * K, c + 19 * K), (c + 16 * K, c + 19 * K), ink, 4 * K)
 
 
+def fish_icon(hole):
+    """A salmon swimming left, its eye painted in the button's own fill."""
+    def draw(d, c, ink):
+        d.ellipse([c - 18 * K, c - 11 * K, c + 10 * K, c + 11 * K], fill=ink)
+        d.polygon([(c + 6 * K, c), (c + 20 * K, c - 11 * K), (c + 17 * K, c), (c + 20 * K, c + 11 * K)], fill=ink)
+        r = 2.6 * K
+        d.ellipse([c - 10 * K - r, c - 3 * K - r, c - 10 * K + r, c - 3 * K + r], fill=hole)
+        # a stripe of fat, as on a salmon fillet
+        d.line([(c - 2 * K, c - 8 * K), (c + 2 * K, c + 8 * K)], fill=hole, width=2 * K)
+    return draw
+
+
 if __name__ == '__main__':
     OUT.mkdir(exist_ok=True)
     tiles = [
@@ -115,6 +128,7 @@ if __name__ == '__main__':
         button(resize_icon, WHITE, WHITE, NAVY), button(resize_icon, HOVER, BLUE, NAVY),
         button(close_icon, WHITE, WHITE, NAVY), button(close_icon, DANGER, RED, RED),
         button(gear_icon(WHITE), WHITE, WHITE, NAVY), button(gear_icon(HOVER), HOVER, BLUE, NAVY),
+        button(fish_icon(WHITE), WHITE, WHITE, SALMON), button(fish_icon(HOVER), HOVER, BLUE, SALMON),
     ]
     strip = Image.new('RGBA', (S * len(tiles), S), (0, 0, 0, 0))
     for i, t in enumerate(tiles):

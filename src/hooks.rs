@@ -3,7 +3,7 @@
 //! `copilot` or `gemini` (or `all`, which skips agents that are not installed) do the same for
 //! Cursor (`~/.cursor/hooks.json`), Copilot CLI (`~/.copilot/hooks/ai-mascot-hook.json`, a file
 //! of our own), Gemini CLI (`~/.gemini/settings.json`), OpenAI Codex (`~/.codex/hooks.json`),
-//! Qwen Code (`~/.qwen/settings.json`) and Windsurf (`~/.codeium/windsurf/hooks.json`).
+//! Qwen Code (`~/.qwen/settings.json`), Windsurf (`~/.codeium/windsurf/hooks.json`)
 //! and Kiro (`~/.kiro/hooks/ai-mascot-hook.json`, also a file of our own).
 //! `--agent` takes one name, several separated by commas, or `all`.
 //! ChatGPT on the web has no hooks; Codex is its command-line agent.
@@ -50,6 +50,8 @@ const CLAUDE: Plan = &[
     ("PermissionRequest", "asking", Some("*"), None),
     ("Notification", "asking", Some("permission_prompt|idle_prompt|elicitation_dialog"), None),
     ("Stop", "completed", None, None),
+    // a turn cut short by an API error (rate limit, auth, server) ends here instead of Stop
+    ("StopFailure", "error", None, None),
     ("SessionEnd", "idle", None, None),
 ];
 
@@ -63,13 +65,16 @@ const CURSOR: Plan = &[
     ("sessionEnd", "idle", None, None),
 ];
 
+// Copilot's permissionRequest runs before every tool, even one it allows on its own, so
+// asking waits for the notification that the user is actually being asked
 const COPILOT: Plan = &[
     ("sessionStart", "idle", None, None),
     ("userPromptSubmitted", "loading", None, None),
     ("preToolUse", "working", None, None),
     ("postToolUse", "working", None, None),
-    ("permissionRequest", "asking", None, None),
+    ("notification", "asking", Some("permission_prompt|elicitation_dialog"), None),
     ("agentStop", "completed", None, None),
+    ("errorOccurred", "error", None, None),
     ("sessionEnd", "idle", None, None),
 ];
 
@@ -105,7 +110,7 @@ const WINDSURF: Plan = &[
     ("post_cascade_response", "completed", None, None),
 ];
 
-// Kiro has no events for asking or session end
+// Kiro has no event for asking; its SessionEnd is only in the CLI, so it is left out
 const KIRO: Plan = &[
     ("SessionStart", "idle", None, None),
     ("UserPromptSubmit", "loading", None, None),
@@ -298,7 +303,13 @@ fn edit(settings: &mut Value, agent: Agent, command: Option<&str>) -> Result<boo
             Agent::Cursor => json!({ "command": line, "timeout": agent.timeout() }),
             Agent::Windsurf => json!({ "command": line }),
             Agent::Kiro => unreachable!("Kiro's file is built whole in apply"),
-            Agent::Copilot => json!({ "type": "command", "command": line, "timeoutSec": agent.timeout() }),
+            Agent::Copilot => {
+                let mut entry = json!({ "type": "command", "command": line, "timeoutSec": agent.timeout() });
+                if let Some(m) = matcher {
+                    entry["matcher"] = json!(m);
+                }
+                entry
+            }
             // a group of hooks sharing a matcher
             Agent::Claude | Agent::Gemini | Agent::Codex | Agent::Qwen => {
                 let mut group = Map::new();
@@ -448,6 +459,17 @@ mod tests {
         assert_eq!(settings["hooks"]["stop"].as_array().unwrap().len(), 2);
         assert!(super::edit(&mut settings, Agent::Cursor, None).unwrap());
         assert_eq!(settings, before);
+    }
+
+    #[test]
+    fn copilot_asks_only_on_a_prompt() {
+        let mut settings = json!({});
+        super::edit(&mut settings, Agent::Copilot, Some("x")).unwrap();
+        assert!(settings["hooks"].get("permissionRequest").is_none());
+        let asking = &settings["hooks"]["notification"][0];
+        assert_eq!(asking["command"], "x --set asking");
+        assert_eq!(asking["matcher"], "permission_prompt|elicitation_dialog");
+        assert!(settings["hooks"]["preToolUse"][0].get("matcher").is_none());
     }
 
     #[test]

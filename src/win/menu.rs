@@ -7,6 +7,7 @@ pub(super) const ACT_STATUS: usize = 0;
 pub(super) const ACT_EDIT: usize = 1;
 pub(super) const ACT_RESIZE: usize = 2;
 pub(super) const ACT_QUIT: usize = 3;
+pub(super) const ACT_FEED: usize = 4;
 
 impl App {
     /// The seal's box, and the work area of the screen it is on, for placing the menu.
@@ -90,6 +91,7 @@ impl App {
     fn menu_click(&mut self, client: POINT) {
         let action = match self.menu.hit(client.x, client.y) {
             Some(Item::Settings) => return self.toggle_settings(),
+            Some(Item::Feed) => ACT_FEED,
             Some(Item::Resize) => ACT_RESIZE,
             Some(Item::Close) => ACT_QUIT,
             Some(Item::Status) => ACT_STATUS,

@@ -12,6 +12,7 @@ Adds hooks to ~/.claude/settings.json that run `ai-mascot-hook.exe --set <state>
     PermissionRequest  -> asking      (Claude needs your OK)
     Notification       -> asking      (permission prompt, waiting for input, MCP question)
     Stop               -> completed
+    StopFailure        -> error       (the turn ended on an API error)
     SessionEnd         -> idle
 
 The editing itself is done by the exe (`--install-hooks --exe <path>`, see src/hooks.rs), so

@@ -9,7 +9,10 @@ use std::env;
 use std::fs::{self, File};
 use std::path::PathBuf;
 
-const STRIPS: [&str; 4] = ["loading", "working", "asking", "completed"];
+const STRIPS: [&str; 12] = [
+    "loading", "working", "asking", "completed",
+    "thinking", "active", "error", "slide", "break-time", "toy-car", "ball", "salmon",
+];
 
 fn main() {
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR"));

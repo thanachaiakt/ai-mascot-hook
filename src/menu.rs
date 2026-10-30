@@ -10,13 +10,14 @@ const MENU_STEPS: u32 = 6;
 /// The menu's buttons: the main row, left to right, then the settings row.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Item {
+    Feed,
     Resize,
     Settings,
     Close,
     Status,
     Edit,
 }
-const MAIN_ROW: [Item; 3] = [Item::Resize, Item::Settings, Item::Close];
+const MAIN_ROW: [Item; 4] = [Item::Feed, Item::Resize, Item::Settings, Item::Close];
 const SETTINGS_ROW: [Item; 2] = [Item::Status, Item::Edit];
 
 /// Where everything in the menu window sits right now.
@@ -63,7 +64,7 @@ impl Menu {
     pub fn new(font: Font, ui: f32) -> Menu {
         let sheet = Image::decode(MENU_PNG);
         let btn = (48.0 * ui).round() as usize;
-        let buttons = (0..12).map(|i| sheet.tile(i, 12, btn)).collect();
+        let buttons = (0..14).map(|i| sheet.tile(i, 14, btn)).collect();
         Menu { open: false, hover: None, step: 0, settings_open: false, settings_step: 0, at: (0, 0), below: false, ui, font, buttons, canvas: Canvas::new() }
     }
 
@@ -75,7 +76,7 @@ impl Menu {
         (design * self.ui) as i32
     }
 
-    /// The menu's layout: a main row (resize, settings, close) bowed into an arc, and, while
+    /// The menu's layout: a main row (feed, resize, settings, close) bowed into an arc, and, while
     /// settings is open, a row of its two buttons on the side away from the seal, centered
     /// over the settings button. Each row has a label strip on its seal side.
     fn layout(&self) -> MenuLayout {
@@ -171,6 +172,7 @@ impl Menu {
 
     fn label_for(item: Item, show_status: bool) -> &'static str {
         match item {
+            Item::Feed => "Feed",
             Item::Resize => "Resize",
             Item::Settings => "Settings",
             Item::Close => "Close",
@@ -198,6 +200,7 @@ impl Menu {
                 Item::Resize => 6,
                 Item::Close => 8,
                 Item::Settings => 10,
+                Item::Feed => 12,
             };
             // settings keeps its ring while its row is open
             let lit = hovered || (item == Item::Settings && self.settings_open);

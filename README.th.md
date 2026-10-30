@@ -3,13 +3,16 @@
 [English](README.md)
 
 แมวน้ำตัวเล็กที่ลอยอยู่บนหน้าจอ Windows หรือ macOS และแสดงท่าทางตามสิ่งที่ Claude Code กำลังทำ
-ตบมือตอนคิด ว่ายน้ำใส่หมวกนิรภัยตอนทำงาน โบกมือบนก้อนน้ำแข็งตอนรอคำตอบ
-และนอนหลับตอนเสร็จงานหรือว่างอยู่ พร้อมกล่องข้อความบอกสถานะแบบ pixel art เข้าชุดกับตัวแมวน้ำ
+ตบมือตอนคิด ว่ายน้ำใส่หมวกนิรภัยสลับกับนั่งคิดตอนทำงาน โบกมือบนก้อนน้ำแข็งตอนรอคำตอบ
+ใส่แว่นกันแดดเท่ๆ ตอนเสร็จงาน ร้องไห้ตอนเกิด error และนอนหลับตอนว่าง ตื่นมาเล่นทุก 1 นาที
+ให้อาหาร (แซลมอน) ได้จากเมนู และตั้งเวลาพักให้นาฬิกาปลุกดังพร้อมข้อความของคุณได้ พร้อมกล่องข้อความบอกสถานะแบบ pixel art เข้าชุดกับตัวแมวน้ำ
 
 <p align="center">
   <img src="assets/gif/loading.gif" width="120" alt="แมวน้ำตบมือ">
   <img src="assets/gif/working.gif" width="120" alt="แมวน้ำว่ายน้ำใส่หมวกนิรภัย">
   <img src="assets/gif/asking.gif" width="120" alt="แมวน้ำโบกมือบนก้อนน้ำแข็ง">
+  <img src="assets/gif-poses/active.gif" width="120" alt="แมวน้ำใส่แว่นกันแดด">
+  <img src="assets/gif-poses/error.gif" width="120" alt="แมวน้ำร้องไห้">
   <img src="assets/gif/completed.gif" width="120" alt="แมวน้ำนอนหลับ">
 </p>
 
@@ -62,13 +65,46 @@ Claude Code ──(เรียก hook)──▶ ai-mascot-hook --set working �
 
 | เหตุการณ์ของ Claude Code | สถานะ | แมวน้ำทำอะไร |
 |---|---|---|
-| เริ่ม/จบ session (`SessionStart`, `SessionEnd`) | `idle` | นอนหลับ |
+| เริ่ม/จบ session (`SessionStart`, `SessionEnd`) | `idle` | นอนหลับ ตื่นมาเล่นทุก 1 นาที |
 | ส่งข้อความ (`UserPromptSubmit`) | `loading` | ตบมือ กำลังคิด |
-| ก่อน/หลังใช้ tool (`PreToolUse`, `PostToolUse`) | `working` | ว่ายน้ำใส่หมวกนิรภัย |
+| ก่อน/หลังใช้ tool (`PreToolUse`, `PostToolUse`) | `working` | ว่ายน้ำใส่หมวกนิรภัย สลับกับนั่งคิด |
 | ขออนุญาต หรือรอคำตอบ (`PermissionRequest`, `Notification`) | `asking` | โบกมือเรียกคุณ |
-| ตอบเสร็จ (`Stop`) | `completed` | นอนหลับ เสร็จแล้ว |
+| ตอบเสร็จ (`Stop`) | `completed` | ใส่แว่นกันแดดเท่ๆ เสร็จแล้ว |
+| ตอบไม่จบเพราะ API error (`StopFailure`) | `error` | ร้องไห้ |
 
 Hook ทำงานเฉพาะ Claude Code ที่รันบนเครื่องนี้ และโปรแกรมไม่ส่งข้อมูลอะไรออกทางเน็ตเลย
+
+### AI ตัวอื่น
+
+AI ตัวอื่นใช้คำสั่งเดียวกัน แต่ผูกกับ event ของตัวเอง บางตัวไม่มี event ครบทุกสถานะ
+ช่องที่เป็น `–` หมายถึง AI ตัวนั้นไม่มีทางทำให้แมวน้ำแสดงสถานะนั้น
+
+| AI | `idle` | `loading` | `working` | `asking` | `completed` | `error` |
+|---|---|---|---|---|---|---|
+| Claude Code, Qwen Code | `SessionStart`, `SessionEnd` | `UserPromptSubmit` | `PreToolUse`, `PostToolUse` | `PermissionRequest`, `Notification` | `Stop` | `StopFailure` |
+| Cursor | `sessionStart`, `sessionEnd` | `beforeSubmitPrompt` | `preToolUse`, `postToolUse` | – | `stop` | – |
+| GitHub Copilot CLI | `sessionStart`, `sessionEnd` | `userPromptSubmitted` | `preToolUse`, `postToolUse` | `notification` | `agentStop` | `errorOccurred` |
+| Gemini CLI | `SessionStart`, `SessionEnd` | `BeforeAgent` | `BeforeTool`, `AfterTool` | `Notification` | `AfterAgent` | – |
+| OpenAI Codex | `SessionStart`, `SessionEnd` | `UserPromptSubmit` | `PreToolUse`, `PostToolUse` | `PermissionRequest` | `Stop` | – |
+| Windsurf | – | `pre_user_prompt` | `pre_read_code`, `pre_write_code`, `pre_run_command`, `pre_mcp_tool_use` | – | `post_cascade_response` | – |
+| Kiro | `SessionStart` | `UserPromptSubmit` | `PreToolUse`, `PostToolUse` | – | `Stop` | – |
+
+- **Qwen Code** ใช้ hook ชุดเดียวกับ Claude Code ทุกอย่าง `StopFailure` ของ Qwen
+  ยังยิงตอนระบบตรวจเจอว่าวนลูปแล้วหยุดรอบนั้นด้วย แมวน้ำจึงร้องไห้ในกรณีนั้นเช่นกัน
+- **Cursor** แจ้งรอบที่จบเพราะ error หรือถูกหยุดกลางทาง ผ่าน event `stop` ตัวเดียวกัน
+  แมวน้ำจึงแสดง `completed` ในกรณีเหล่านั้นด้วย hook `preToolUse` และ `beforeSubmitPrompt`
+  ต้องตอบกลับทาง stdout ซึ่ง hook ทำให้แล้ว (`--reply allow`, `--reply continue`)
+- **Copilot CLI** เรียก `permissionRequest` ก่อนใช้ tool ทุกครั้ง แม้ตัวที่อนุญาตเองอัตโนมัติ
+  สถานะ `asking` จึงรอ `notification` ที่บอกว่ากำลังถามคุณจริงๆ (`permission_prompt` หรือ
+  `elicitation_dialog`) ส่วน `errorOccurred` ยิงแม้ error ที่ Copilot แก้เองแล้วทำต่อได้
+  hook ถัดไปจะพาแมวน้ำกลับไปทำงานเอง
+- **Gemini CLI** ยิง `Notification` ตอนขออนุญาต และนับ timeout ของ hook เป็นมิลลิวินาที
+  hook ของ Gemini จึงตั้งไว้ 10000 แทน 10
+- **Codex** ต้องได้ JSON จาก hook `Stop` (`--reply empty` พิมพ์ `{}`) และจะให้ตรวจ hook
+  ใหม่ครั้งหนึ่งผ่าน `/hooks`
+- **Windsurf** (Cascade) ไม่มี event ของ session หลังจบ session แมวน้ำจึงค้างที่สถานะสุดท้าย
+  จนกว่าจะส่งข้อความถัดไป
+- **Kiro** มี `SessionEnd` เฉพาะใน CLI จึงไม่ได้ใส่ไว้ แมวน้ำจะกลับไป `idle` ตอนเริ่ม session ใหม่
 
 ## ติดตั้งบน Windows
 
@@ -127,11 +163,12 @@ Claude Code ไม่บังคับ (ถ้าไม่มี แมวน�
    **session ที่เปิดไว้ก่อนติดตั้ง hook จะไม่เรียก hook** ลองส่งข้อความหา Claude
    แมวน้ำจะเปลี่ยนเป็นท่าตบมือ (loading) ทันที
 
-   **Agent อื่น** เติม `--agent cursor`, `copilot`, `gemini` หรือ `codex` (Codex CLI ของ OpenAI;
-   ChatGPT บนเว็บไม่มี hook) ต่อท้าย `--install-hooks` เพื่อติดตั้งให้ agent นั้นแทน
-   หรือ `--agent all` เพื่อติดตั้งให้ Claude Code และทุก agent ที่พบในเครื่อง
+   **Agent อื่น** เติม `--agent` ตามด้วย `cursor`, `copilot` (Copilot CLI), `gemini`, `codex`
+   (Codex CLI ของ OpenAI; ChatGPT บนเว็บไม่มี hook), `qwen`, `windsurf` หรือ `kiro`
+   ต่อท้าย `--install-hooks` เพื่อติดตั้งให้ agent นั้นแทน ใส่หลายตัวคั่นด้วยจุลภาคได้
+   (`--agent claude,kiro`) หรือ `--agent all` เพื่อติดตั้งให้ Claude Code และทุก agent ที่พบในเครื่อง
    ถอนด้วย `--remove-hooks --agent <ชื่อ>` Codex จะให้ตรวจ hook ใหม่ครั้งหนึ่งผ่าน `/hooks`
-   ส่วน Cursor ไม่มีสถานะ asking เพราะไม่มี event ที่ตรงกัน
+   ส่วน event ไหนตั้งสถานะอะไรของแต่ละ agent ดูได้ที่ [AI ตัวอื่น](#ai-ตัวอื่น)
 5. **ให้เปิดเองตอนเข้า Windows (ไม่บังคับ)** กด `Win + R` พิมพ์ `shell:startup` แล้วกด Enter
    จากนั้นสร้าง shortcut ของ `ai-mascot-hook.exe` ไว้ในโฟลเดอร์ที่เปิดขึ้นมา
 
@@ -216,17 +253,21 @@ build เองครั้งเดียว ประมาณ 1 นาที
 ## วิธีใช้งาน
 
 - **กดค้างแล้วลาก** (หรือกดแล้วขยับ): ย้ายตำแหน่งแมวน้ำ
-- **คลิก** (หรือคลิกขวา): เปิดเมนูปุ่มกลมสามปุ่ม
-  1. ลูกศร (**Resize**): ปรับขนาด หมุนล้อเมาส์บนตัวแมวน้ำ หรือลากมุมขวาล่าง
+- **คลิก** (หรือคลิกขวา): เปิดเมนูปุ่มกลมสี่ปุ่ม (ระหว่างเวลาพัก คลิกซ้ายจะจบเวลาพักแทน)
+  1. ปลา (**Feed**): ให้อาหาร แมวน้ำกินแซลมอนพร้อมขอบคุณ (ข้อความตอนให้อาหาร ตั้งได้ในหน้าตั้งค่า)
+     แล้วกลับไปทำท่าเดิม
+  2. ลูกศร (**Resize**): ปรับขนาด หมุนล้อเมาส์บนตัวแมวน้ำ หรือลากมุมขวาล่าง
      ได้ตั้งแต่ 32 ถึง 512 px คลิกที่แมวน้ำเมื่อเสร็จ
-  2. เฟือง (**Settings**): เปิดแถวที่สอง
+  3. เฟือง (**Settings**): เปิดแถวที่สอง
      - **Show status / Hide status**: เปิดหรือปิดกล่องข้อความสถานะ
      - **Edit status**: เปิดหน้าตั้งค่าข้อความ
-  3. กากบาท (**Close**): ปิดโปรแกรม
+  4. กากบาท (**Close**): ปิดโปรแกรม
 - กด Esc เพื่อปิดเมนู
+- ถึง**เวลาพัก** (ตั้งในหน้าตั้งค่า) แมวน้ำจะเล่นท่านาฬิกาปลุก 1 นาที และกล่องข้อความแสดงข้อความพักของคุณ
+  แม้จะปิดกล่องข้อความสถานะไว้ คลิกที่แมวน้ำเพื่อจบเวลาพักก่อนได้
 - ตำแหน่ง ขนาด และการเปิด/ปิดกล่องข้อความจะถูกจำไว้ เปิดครั้งหน้าจะอยู่ที่เดิม
 - สั่งสถานะเอง (ใช้ทดสอบ หรือเชื่อมกับโปรแกรมอื่นได้): `ai-mascot-hook --set asking`
-  สถานะที่ใช้ได้: `loading`, `working`, `asking`, `completed`, `idle`
+  สถานะที่ใช้ได้: `loading`, `working`, `asking`, `completed`, `error`, `idle`
 
 ### กล่องข้อความสถานะ
 
@@ -244,6 +285,7 @@ build เองครั้งเดียว ประมาณ 1 นาที
 | **TEXT COLOR** | สีตัวอักษรของสถานะที่เลือกอยู่ แต่ละสถานะมีสีของตัวเองได้ กด **+** เพื่อเลือกสีอื่นนอกจาก 8 สี |
 | **Show status** | เปิด/ปิดกล่องข้อความ (เหมือนปุ่มในเมนู) |
 | **Auto hide** | ซ่อนกล่องข้อความเองหลังสถานะเปลี่ยน ตั้งได้ 1–20 วินาทีด้วยปุ่ม − / + |
+| **BREAK & FEED** | **Break at** เวลาพักในแต่ละวัน เช่น `12:00, 15:30`, **Break text** ข้อความที่แสดงตอนพัก และ **Fed text** ข้อความตอนให้อาหาร |
 | **Reset** | คืนข้อความและสีทั้งหมดเป็นค่าเริ่มต้น (ยังไม่บันทึกจนกว่าจะกด Save) |
 | **Save** / **Cancel** | บันทึก / ยกเลิก |
 
@@ -266,7 +308,10 @@ build เองครั้งเดียว ประมาณ 1 นาที
 | `working` | Working… |
 | `asking` | Need your input! |
 | `completed` | All done! |
+| `error` | Something went wrong |
 | `idle` | Napping… zZ |
+| ตอนพัก (Break text) | Time for a break! |
+| ตอนให้อาหาร (Fed text) | Yum, thank you! |
 
 ## การเก็บ setting
 
@@ -281,7 +326,7 @@ build เองครั้งเดียว ประมาณ 1 นาที
 |---|---|---|
 | `state` | สถานะปัจจุบัน (`working` ฯลฯ) | hook (คำสั่ง `--set`) |
 | `placement` | ตำแหน่ง ขนาด และการเปิด/ปิดกล่องข้อความ | แมวน้ำ เมื่อคุณย้าย ปรับขนาด หรือสลับกล่องข้อความ |
-| `status.txt` | ข้อความ สีของแต่ละสถานะ และเวลา auto hide | ปุ่ม **Save** ในหน้าตั้งค่าข้อความ |
+| `status.txt` | ข้อความ สีของแต่ละสถานะ เวลา auto hide เวลาพัก และข้อความตอนพักกับตอนให้อาหาร | ปุ่ม **Save** ในหน้าตั้งค่าข้อความ |
 
 `status.txt` เป็นข้อความธรรมดา รูปแบบเดียวกันทั้งสองระบบ คัดลอกข้าม Windows กับ Mac ได้
 ลบไฟล์ไหนทิ้ง ค่านั้นจะกลับเป็นค่าเริ่มต้น
@@ -337,18 +382,22 @@ Build เสร็จแล้วโปรแกรมทำงานได้�
 
 ## ภาพและแอนิเมชัน
 
-แต่ละสถานะเป็นแถบภาพ (frame strip) แบบเคลื่อนไหว แมวน้ำจะเล่นแถบที่ตรงกับสถานะปัจจุบัน
-ภาพตัวอย่างด้านล่างเป็น GIF จาก `assets/gif/` (พื้นหลังโปร่งใส) คลิกที่ภาพเพื่อเปิดแถบภาพเต็ม
+แต่ละท่าเป็นแถบภาพ (frame strip) แบบเคลื่อนไหว สถานะหนึ่งเล่นแถบเดียว หรือหลายแถบสลับกัน
+แต่ละแถบเล่นอย่างน้อย 10 วินาที แล้วแถบถัดไปจะเริ่มตอนวนกลับมาเฟรมแรก
+ภาพตัวอย่างด้านล่างเป็น GIF จาก `assets/gif/` และ `assets/gif-poses/` (พื้นหลังโปร่งใส) คลิกที่ภาพเพื่อเปิดแถบภาพเต็ม
 
 | สถานะ | ภาพ | แมวน้ำทำอะไร |
 |---|---|---|
 | `loading` | [<img src="assets/gif/loading.gif" width="120" alt="ตัวอย่างท่า loading">](assets/loading.png) | ตบมือและกระพือครีบอย่างมีความสุขตอนคิด |
-| `working` | [<img src="assets/gif/working.gif" width="120" alt="ตัวอย่างท่า working">](assets/working.png) | ว่ายและหมุนตัวใส่หมวกนิรภัย ถือพลั่ว ตอนทำงาน แสดงใหญ่ขึ้น 1.15 เท่า เพราะตัวที่ว่ายน้ำถูกวาดเล็กกว่าแมวน้ำท่าอื่น หน้าต่างจึงยื่นออกนอกกรอบของแมวน้ำเพื่อให้เห็นตัวเต็มแม้ที่ขอบหรือตอนหมุน |
+| `working` | [<img src="assets/gif/working.gif" width="120" alt="ตัวอย่างท่า working">](assets/working.png) [<img src="assets/gif-poses/thinking.gif" width="120" alt="ตัวอย่างท่านั่งคิด">](assets/thinking.png) | ว่ายและหมุนตัวใส่หมวกนิรภัย ถือพลั่ว สลับกับนั่งคิด ตอนทำงาน ตัวที่ว่ายน้ำแสดงใหญ่ขึ้น 1.15 เท่า เพราะถูกวาดเล็กกว่าแมวน้ำท่าอื่น หน้าต่างจึงยื่นออกนอกกรอบของแมวน้ำเพื่อให้เห็นตัวเต็มแม้ที่ขอบหรือตอนหมุน |
 | `asking` | [<img src="assets/gif/asking.gif" width="120" alt="ตัวอย่างท่า asking">](assets/asking.png) | นั่งบนก้อนน้ำแข็งและโบกมือขอคำตอบ |
-| `completed` | [<img src="assets/gif/completed.gif" width="120" alt="ตัวอย่างท่า completed">](assets/completed.png) | นอนหลับมี zZ ลอยอยู่ หลังตอบเสร็จ |
-| `idle` | [<img src="assets/gif/completed.gif" width="120" alt="ตัวอย่างท่า idle">](assets/completed.png) | ใช้ท่านอนหลับเดียวกันตอนว่าง |
+| `completed` | [<img src="assets/gif-poses/active.gif" width="120" alt="ตัวอย่างท่า completed">](assets/active.png) | ใส่แว่นกันแดดเท่ๆ มีประกายวิบวับ หลังตอบเสร็จ |
+| `error` | [<img src="assets/gif-poses/error.gif" width="120" alt="ตัวอย่างท่า error">](assets/error.png) | เอาครีบปิดหน้าร้องไห้ ตอนตอบไม่จบเพราะ error |
+| `idle` | [<img src="assets/gif/completed.gif" width="120" alt="ตัวอย่างท่านอนหลับ">](assets/completed.png) [<img src="assets/gif-poses/slide.gif" width="120" alt="ตัวอย่างท่าไถลตัว">](assets/slide.png) [<img src="assets/gif-poses/toy-car.gif" width="120" alt="ตัวอย่างท่ารถของเล่น">](assets/toy-car.png) [<img src="assets/gif-poses/ball.gif" width="120" alt="ตัวอย่างท่าเล่นบอล">](assets/ball.png) | นอนหลับมี zZ ลอยอยู่ ทุก 1 นาทีตื่นมาไถลตัวบนท้อง เล่นรถของเล่น หรือเล่นลูกบอล สุ่มหนึ่งท่า แล้วกลับไปนอน |
+| ให้อาหาร | [<img src="assets/gif-poses/salmon.gif" width="120" alt="ตัวอย่างท่ากินแซลมอน">](assets/salmon.png) | กอดกินปลาแซลมอนทีละคำ เลียปาก โบกครีบ มีหัวใจและประกายวิบวับ |
+| เวลาพัก | [<img src="assets/gif-poses/break-time.gif" width="120" alt="ตัวอย่างท่านาฬิกาพัก">](assets/break-time.png) | นาฬิกาปลุกดัง ได้เวลาพักแล้ว |
 
-สถานะที่ไม่รู้จักหรือไม่มีไฟล์ก็ใช้ท่านอนหลับเช่นกัน แถบภาพมีขนาดเฟรมละ 260 x 260 px (1:1)
+สถานะที่ไม่รู้จักหรือไม่มีไฟล์นับเป็น idle แถบภาพสี่แถบแรกมีขนาดเฟรมละ 260 x 260 px (1:1)
 ตัดจากคลิป 2 x 2 `art/states.mp4` (ไม่เก็บไว้ใน repo หนึ่งสถานะต่อหนึ่งในสี่)
 ด้วย `tools/video_states.py` ซึ่งตัดแมวน้ำออกจากพื้นหลังตารางสีน้ำเงิน ตัดให้วนซ้ำได้เนียน
 ครอบเป็นสี่เหลี่ยมจัตุรัส แล้วเขียนแถบภาพกับ GIF ขนาด 300 x 300 (`assets/gif/<state>.gif`)
@@ -357,9 +406,21 @@ Build เสร็จแล้วโปรแกรมทำงานได้�
 โปรแกรมเก็บแถบภาพเป็น palette index (1 ไบต์ต่อพิกเซล) และย่อ/ขยายเฟรมปัจจุบันให้พอดีกับขนาดแมวน้ำตอนวาด
 โดยคงสัดส่วนของเฟรม
 
+แถบภาพที่เหลือ (`thinking`, `active`, `error` และท่าตอน idle) ตัดแบบเดียวกันจากคลิปท่าสติกเกอร์ 4 x 3
+ด้วย `tools/video_poses.py <clip.mp4>` ซึ่งเขียน `assets/gif-poses/<pose>.gif` ด้วย ท่านั่งคิดเก็บไว้แค่ตัวแมวน้ำ
+โดยเอาเครื่องหมาย "?" และ zZ ที่ลอยข้างหัวออก ตรงที่เครื่องหมายแตะหรือทับหัวจะถูกระบายทับด้วยสีของแมวน้ำเอง
+(วาดขอบหัวให้โค้งใหม่ เป็นขอบขาวแล้วเส้นกรมท่า และถมขีดที่ทับขนด้วยสีขน) ส่วนน้ำตาของท่า error เป็นสีน้ำเงินเดียวกับพื้นหลัง
+จึงนับเฉพาะสีน้ำเงินสว่างเป็นพื้นหลัง ให้ขอบสีเข้มของน้ำตาแต่ละหยดกันไม่ให้ถูกตัดหาย หยดที่ขอบขาดจะถูกถมให้เต็ม
+
+ส่วนท่ากินแซลมอนมีคลิปของตัวเองยาว 20 วินาที (`art/salmon.mp4` ไม่ได้เก็บไว้ใน repository) แมวน้ำตัวเดียวบนตาราง
+ตัดทั้งคลิปด้วย `tools/clip_pose.py <clip.mp4> salmon 0.3` แบบเดียวกัน GIF ยาวเท่าคลิป และตอนให้อาหารจะเล่นแถบภาพครบหนึ่งรอบ
+จากนั้นตัด 10 เฟรมแรกของแถบภาพ (20 เฟรมของ GIF) ที่แมวน้ำยังนั่งนิ่งก่อนเริ่มกินออกเอง ให้ท่าเริ่มเร็วขึ้น ถ้าตัดคลิปใหม่ต้องตัดส่วนนี้ออกอีกครั้ง
+ค่า `0.3` ทำให้ขนขาวกว่าท่าอื่นที่ใช้ 0.55 ฟองที่ลอยห่างออกไปบนตารางถูกตัดทิ้ง ส่วนหัวใจและประกายที่อยู่ใกล้ตัวยังอยู่
+ส่วน `tools/sheet_pose.py` ใช้ตัดท่าที่วาดเป็นแผ่นสติกเกอร์ 4 x 4 เฟรมแทน
+
 - `assets/menu.png`: ปุ่มของเมนู วาดด้วย `tools/render_ui.py`
 
-สคริปต์ต้องใช้ Pillow ส่วน `video_states.py` ต้องมี NumPy, SciPy และ `ffmpeg` อยู่ใน `PATH` ด้วย
+สคริปต์ต้องใช้ Pillow ส่วน `video_states.py`, `video_poses.py`, `clip_pose.py` และ `sheet_pose.py` ต้องมี NumPy และ SciPy ด้วย และสามตัวแรกต้องมี `ffmpeg` อยู่ใน `PATH`
 แก้ภาพแล้วให้รันสคริปต์ใหม่ แล้ว build อีกครั้ง
 
 รายละเอียดการทำงานทั้งหมดดูได้ที่ [SPEC.md](SPEC.md)

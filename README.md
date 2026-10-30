@@ -3,13 +3,17 @@
 [ภาษาไทย: วิธีติดตั้งและใช้งาน](README.th.md)
 
 A small seal that floats on the Windows or macOS desktop and acts out what Claude Code is doing:
-claps while loading, swims in a hard hat while working, waves from an ice floe while asking,
-and naps when the turn is done or idle.
+claps while loading, swims in a hard hat and stops to think while working, waves from an
+ice floe while asking, shows off in sunglasses when the turn is done, cries when it fails,
+and naps when idle, waking every minute to play. Feed it a salmon from its menu, and set
+break times for it to ring an alarm clock with your own message.
 
 <p align="center">
   <img src="assets/gif/loading.gif" width="120" alt="Seal clapping">
   <img src="assets/gif/working.gif" width="120" alt="Seal swimming in a hard hat">
   <img src="assets/gif/asking.gif" width="120" alt="Seal waving from an ice floe">
+  <img src="assets/gif-poses/active.gif" width="120" alt="Seal in sunglasses">
+  <img src="assets/gif-poses/error.gif" width="120" alt="Seal crying">
   <img src="assets/gif/completed.gif" width="120" alt="Seal napping">
 </p>
 
@@ -61,13 +65,48 @@ the seal on your desktop ◀──(reads the file every 0.4 s)──────
 
 | Claude Code event | State | What the seal does |
 |---|---|---|
-| `SessionStart`, `SessionEnd` | `idle` | naps |
+| `SessionStart`, `SessionEnd` | `idle` | naps, and wakes every minute to play |
 | `UserPromptSubmit` | `loading` | claps while thinking |
-| `PreToolUse`, `PostToolUse` | `working` | swims in a hard hat |
+| `PreToolUse`, `PostToolUse` | `working` | swims in a hard hat, and stops to think in turn |
 | `PermissionRequest`, `Notification` (permission, idle, MCP prompts) | `asking` | waves for your attention |
-| `Stop` | `completed` | naps, turn is done |
+| `Stop` | `completed` | shows off in sunglasses, turn is done |
+| `StopFailure` (the turn ended on an API error) | `error` | cries |
 
 Hooks only fire for Claude Code running on this computer. Nothing is sent over the network.
+
+### Other AI assistants
+
+The other assistants get the same command on their own events. Not every assistant has an
+event for every state; a `–` means that assistant never shows that state.
+
+| Assistant | `idle` | `loading` | `working` | `asking` | `completed` | `error` |
+|---|---|---|---|---|---|---|
+| Claude Code, Qwen Code | `SessionStart`, `SessionEnd` | `UserPromptSubmit` | `PreToolUse`, `PostToolUse` | `PermissionRequest`, `Notification` | `Stop` | `StopFailure` |
+| Cursor | `sessionStart`, `sessionEnd` | `beforeSubmitPrompt` | `preToolUse`, `postToolUse` | – | `stop` | – |
+| GitHub Copilot CLI | `sessionStart`, `sessionEnd` | `userPromptSubmitted` | `preToolUse`, `postToolUse` | `notification` | `agentStop` | `errorOccurred` |
+| Gemini CLI | `SessionStart`, `SessionEnd` | `BeforeAgent` | `BeforeTool`, `AfterTool` | `Notification` | `AfterAgent` | – |
+| OpenAI Codex | `SessionStart`, `SessionEnd` | `UserPromptSubmit` | `PreToolUse`, `PostToolUse` | `PermissionRequest` | `Stop` | – |
+| Windsurf | – | `pre_user_prompt` | `pre_read_code`, `pre_write_code`, `pre_run_command`, `pre_mcp_tool_use` | – | `post_cascade_response` | – |
+| Kiro | `SessionStart` | `UserPromptSubmit` | `PreToolUse`, `PostToolUse` | – | `Stop` | – |
+
+- **Qwen Code** takes Claude Code's hooks as they are. Its `StopFailure` also fires when
+  loop detection stops the turn, so the seal cries then too.
+- **Cursor** reports a turn that ended on an error or was stopped through the same `stop`
+  event, so the seal shows `completed` for those as well. Its `preToolUse` and
+  `beforeSubmitPrompt` hooks must answer on stdout, which the hook does
+  (`--reply allow`, `--reply continue`).
+- **Copilot CLI** runs `permissionRequest` before every tool, even one it allows on its
+  own, so `asking` waits for a `notification` that you are actually being asked
+  (`permission_prompt` or `elicitation_dialog`). `errorOccurred` also fires for errors
+  Copilot recovers from; the next hook then takes the seal back to work.
+- **Gemini CLI**'s `Notification` fires for permission prompts. It counts hook timeouts in
+  milliseconds, so its hooks get 10 000 rather than 10.
+- **Codex** wants JSON from its `Stop` hook (`--reply empty` prints `{}`), and asks you to
+  review new hooks once with `/hooks`.
+- **Windsurf** (Cascade) has no session events, so after a session ends the seal stays on
+  the last state until the next prompt.
+- **Kiro** has `SessionEnd` only in its CLI, so the hooks leave it out; the seal goes back
+  to `idle` when the next session starts.
 
 ## Install on Windows
 
@@ -131,7 +170,8 @@ Assets also has a plain `.zip` with only the exe, for the steps below.
    `--install-hooks` to hook that agent instead. Several go in one list (`--agent claude,kiro`),
    and `all` means Claude Code plus every agent found on this computer. `--remove-hooks --agent
    <name>` takes them out (`all` removes every agent's). Codex asks you to review the new hooks
-   once with `/hooks`. Cursor, Windsurf and Kiro have no event for asking, so they never show it.
+   once with `/hooks`. Which events set which state for each agent is in
+   [Other AI assistants](#other-ai-assistants).
 5. **Start with Windows (optional).** Press `Win + R`, type `shell:startup`, press Enter,
    and put a shortcut to `ai-mascot-hook.exe` in that folder.
 
@@ -218,15 +258,21 @@ Everything else works as on Windows: dragging, resizing, the icon menu, the stat
 
 - Borderless, transparent around the seal, always on top, no taskbar button.
 - **Press and hold** (or press and move): drag the seal anywhere.
-- **Click** the seal: a menu of three round buttons pops up above it
-  1. arrows (**Resize**): resize mode. Turn the mouse wheel over the seal or drag its corner
+- **Click** the seal: a menu of four round buttons pops up above it (while a break is
+  ringing, a click ends the break instead)
+  1. fish (**Feed**): the seal eats a salmon and thanks you (the feed message, set in the
+     editor), then goes back to what it was doing.
+  2. arrows (**Resize**): resize mode. Turn the mouse wheel over the seal or drag its corner
      handle; the seal fits anywhere from a 32 x 32 to a 512 x 512 px box. Click the seal when done.
-  2. gear (**Settings**): unfolds a second row with two buttons
+  3. gear (**Settings**): unfolds a second row with two buttons
      - speech bubble (**Show status**): show or hide a status bubble ("Working…", "Need your input!", ...)
      - pencil (**Edit status**): opens the status editor (see below).
-  3. cross (**Close**): quit
+  4. cross (**Close**): quit
+- At each **break time** (set in the editor) the seal rings an alarm clock for a minute and
+  the bubble shows your break message, even with the status bubble off. Click the seal to
+  end the break early.
 - Drive it by hand (handy for testing): `ai-mascot-hook --set asking`. States:
-  `loading`, `working`, `asking`, `completed`, `idle`.
+  `loading`, `working`, `asking`, `completed`, `error`, `idle`.
 
 ### The status bubble
 
@@ -245,6 +291,9 @@ ring ripples out of the colored dot.
   (eight swatches, or **+** for any color).
 - **Bubble**: **Show status** turns the bubble on or off; **Auto hide** hides it again
   1–20 seconds after each state change.
+- **Break & Feed**: **Break at** lists the times of day to take a break, such as
+  `12:00, 15:30`; **Break text** is what the bubble says then, and **Fed text** what it
+  says while the seal eats.
 - **Save** (or Enter) keeps the changes in `status.txt`;
   **Cancel**, × or Escape drops them; **Reset** restores the default words and colors.
 
@@ -261,7 +310,7 @@ Everything lives in one folder, and nothing is stored anywhere else (no registry
 |---|---|---|
 | `state` | the current state word (`working`, ...) | the hooks (`--set`) |
 | `placement` | seal position, size, and whether the bubble is shown | the seal, when you move, resize or toggle |
-| `status.txt` | each state's words and color, and the auto-hide time | the status editor's **Save** |
+| `status.txt` | each state's words and color, the auto-hide time, the break times, and the break and feed messages | the status editor's **Save** |
 
 `status.txt` has the same plain-text format on both platforms, so you can copy it between
 a Windows PC and a Mac. Deleting a file just resets that setting to its default.
@@ -312,19 +361,23 @@ The result is `target/release/ai-mascot-hook.exe` (Windows) or `target/release/a
 
 ## The art
 
-Each state image is an animated frame strip. The seal plays the matching strip
-for the current state. The previews below are the animated GIFs from `assets/gif/`
+Each animation is a frame strip. A state plays one strip, or several in turn: each
+plays for at least 10 s, then the next takes over as it comes back to its first frame.
+The previews below are the animated GIFs from `assets/gif/` and `assets/gif-poses/`
 (transparent); click one to open its full frame strip.
 
 | State | Image | What the seal does |
 |---|---|---|
 | `loading` | [<img src="assets/gif/loading.gif" width="120" alt="Loading animation preview">](assets/loading.png) | Claps happily and flaps its flippers while thinking. |
-| `working` | [<img src="assets/gif/working.gif" width="120" alt="Working animation preview">](assets/working.png) | Swims and spins in a hard hat, shovel in hand, while working. Shown 1.15× larger, since the swimmer is drawn smaller than the other seals; the window reaches past the seal's box so the whole swimmer stays in view at the edges and mid-spin. |
+| `working` | [<img src="assets/gif/working.gif" width="120" alt="Working animation preview">](assets/working.png) [<img src="assets/gif-poses/thinking.gif" width="120" alt="Thinking animation preview">](assets/thinking.png) | Swims and spins in a hard hat, shovel in hand, then sits and thinks, in turn. The swimmer is shown 1.15× larger, since it is drawn smaller than the other seals; the window reaches past the seal's box so the whole swimmer stays in view at the edges and mid-spin. |
 | `asking` | [<img src="assets/gif/asking.gif" width="120" alt="Asking animation preview">](assets/asking.png) | Sits on an ice floe and waves to ask for input. |
-| `completed` | [<img src="assets/gif/completed.gif" width="120" alt="Completed animation preview">](assets/completed.png) | Naps under floating zZ after the turn is done. |
-| `idle` | [<img src="assets/gif/completed.gif" width="120" alt="Idle animation preview">](assets/completed.png) | Uses the same napping animation while idle. |
+| `completed` | [<img src="assets/gif-poses/active.gif" width="120" alt="Completed animation preview">](assets/active.png) | Shows off in sunglasses, sparkling, after the turn is done. |
+| `error` | [<img src="assets/gif-poses/error.gif" width="120" alt="Error animation preview">](assets/error.png) | Cries into its flippers when the turn ends on an error. |
+| `idle` | [<img src="assets/gif/completed.gif" width="120" alt="Napping animation preview">](assets/completed.png) [<img src="assets/gif-poses/slide.gif" width="120" alt="Sliding animation preview">](assets/slide.png) [<img src="assets/gif-poses/toy-car.gif" width="120" alt="Toy car animation preview">](assets/toy-car.png) [<img src="assets/gif-poses/ball.gif" width="120" alt="Ball animation preview">](assets/ball.png) | Naps under floating zZ; every minute it wakes to slide on its belly or play with a toy car or a ball, one at random, then naps again. |
+| Feed | [<img src="assets/gif-poses/salmon.gif" width="120" alt="Salmon animation preview">](assets/salmon.png) | Hugs and eats a salmon bite by bite, licks its lips, waves, and glows with a heart and sparkles. |
+| Break | [<img src="assets/gif-poses/break-time.gif" width="120" alt="Break time animation preview">](assets/break-time.png) | The alarm clock rings: time for a break. |
 
-An unknown or missing state also uses the napping animation. The strips are
+An unknown or missing state is idle. The first four strips are
 260 x 260 px (1:1) per frame, cut from the 2 x 2 clip `art/states.mp4` (not kept in the repository; one
 state per quarter) by `tools/video_states.py`: it cuts each seal out of the blue
 grid backdrop, trims it to a seamless loop, crops it square, and writes the strip
@@ -335,10 +388,29 @@ from a neighbouring frame. The program keeps the strips as palette indices (1 by
 pixel) and scales the current frame to the seal's size as it draws it, keeping
 the frame's aspect.
 
+The other strips (`thinking`, `active`, `error`, and the idle poses) are cut the same
+way from a 4 x 3 clip of sticker poses by `tools/video_poses.py <clip.mp4>`, which also
+writes `assets/gif-poses/<pose>.gif`. Thinking keeps the seal alone: the "?" and zZ marks
+floating by its head are taken out, and where they touch or cross the head it is painted
+over in the seal's own colors (its edge redrawn round, white rim then navy outline, and
+strokes on the fur filled with fur). Error's tears are the backdrop's own blue, so only
+bright blue counts as backdrop there and each tear's darker outline keeps it whole; a
+flying drop whose outline breaks is filled back in.
+
+The salmon has a 20 s clip of its own (`art/salmon.mp4`, not kept in the repository), one
+seal on the grid, cut whole by `tools/clip_pose.py <clip.mp4> salmon 0.3` the same way:
+the GIF runs as long as the clip, and the feed plays the strip once through. The first
+10 strip frames (20 GIF frames), where the seal sits still before it eats, were then cut
+off by hand, so the feed starts sooner; cut them again after re-running. The `0.3`
+whitens the fur more than the other poses' 0.55. Bubbles drifting off across the grid
+are left out; the heart and sparkles near the seal stay. `tools/sheet_pose.py` cuts a pose
+drawn as a 4 x 4 sprite sheet instead.
+
 - `assets/menu.png`: the menu buttons, drawn by `tools/render_ui.py`.
 
-The scripts need Pillow; `video_states.py` also needs NumPy, SciPy and `ffmpeg`
-on `PATH`. Re-run them after changing the art, then rebuild.
+The scripts need Pillow; `video_states.py`, `video_poses.py`, `clip_pose.py` and
+`sheet_pose.py` also need NumPy and SciPy, and the first three `ffmpeg` on `PATH`. Re-run
+them after changing the art, then rebuild.
 
 For the full behavior, input format, and persistence contract, see
 [SPEC.md](SPEC.md). For how the code fits together (with diagrams), see

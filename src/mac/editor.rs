@@ -17,7 +17,7 @@ const MAX_CHARS: usize = 60;
 /// The open status-text editor: its panel, its text boxes and the choices being made.
 pub(super) struct Editor {
     win: Retained<NSPanel>,
-    /// each state's words, in the order of `STATES`
+    /// each state's words, in the order of `STATES`, then `StatusText::extras`
     pub(super) fields: Vec<Retained<NSTextField>>,
     pub(super) draft: Draft,
     canvas: Canvas,
@@ -203,12 +203,15 @@ impl App {
         let (pt, inset) = (ui as f64, s(12.0) as f64 / ui as f64);
         let delegate = ProtocolObject::from_ref(&*self.editor_target);
         let draft = Draft::new(&self.status, self.show_status, &self.state);
+        let words = self.status.texts.iter().cloned().chain(self.status.extras());
         let fields = layout
             .fields
             .iter()
+            .chain(&layout.extra_fields)
+            .zip(words)
             .enumerate()
-            .map(|(i, f)| {
-                let field = NSTextField::textFieldWithString(&NSString::from_str(&self.status.texts[i]), self.mtm);
+            .map(|(i, (f, words))| {
+                let field = NSTextField::textFieldWithString(&NSString::from_str(&words), self.mtm);
                 field.setBordered(false);
                 field.setBezeled(false);
                 field.setDrawsBackground(false);
@@ -218,7 +221,8 @@ impl App {
                     cell.setScrollable(true);
                 }
                 field.setFont(Some(unsafe { &*self.editor_fonts.edit }));
-                field.setTextColor(Some(&ns_color(draft.colors[i])));
+                // the boxes past the states' keep the plain ink
+                field.setTextColor(Some(&ns_color(draft.colors.get(i).copied().unwrap_or(INK))));
                 unsafe { field.setDelegate(Some(delegate)) };
                 let top = (f.1 + f.3) as f64 / 2.0 / pt - line / 2.0;
                 let frame = CGRect::new(CGPoint::new(f.0 as f64 / pt + inset, wh as f64 / pt - top - line), CGSize::new((f.2 - f.0) as f64 / pt - 2.0 * inset, line));
@@ -262,11 +266,7 @@ impl App {
 
     fn editor_focus(&mut self, focus: Option<usize>) {
         let Some(e) = self.editor.as_mut() else { return };
-        e.draft.focus = focus;
-        let moved = focus.is_some_and(|i| i != e.draft.selected);
-        if let Some(i) = focus {
-            e.draft.selected = i;
-        }
+        let moved = e.draft.focus_on(focus);
         self.paint_editor();
         if moved {
             self.sync_clip();
@@ -323,8 +323,9 @@ impl App {
     fn reset_editor(&mut self) {
         let defaults = StatusText::defaults();
         let Some(e) = self.editor.as_mut() else { return };
-        for (field, text) in e.fields.iter().zip(defaults.texts.iter()) {
-            let text = NSString::from_str(text);
+        let words = defaults.texts.iter().cloned().chain(defaults.extras());
+        for (field, text) in e.fields.iter().zip(words) {
+            let text = NSString::from_str(&text);
             field.setStringValue(&text);
             // a box being typed in shows its field editor's copy of the words
             if let Some(editing) = field.currentEditor() {
@@ -342,7 +343,8 @@ impl App {
     pub(super) fn close_editor(&mut self, keep: bool) {
         let Some(e) = self.editor.take() else { return };
         if keep {
-            e.draft.commit(&mut self.status, std::array::from_fn(|i| e.fields[i].stringValue().to_string()));
+            let extras = std::array::from_fn(|i| e.fields[EXTRAS + i].stringValue().to_string());
+            e.draft.commit(&mut self.status, std::array::from_fn(|i| e.fields[i].stringValue().to_string()), extras);
             self.show_status = e.draft.show;
             let _ = std::fs::create_dir_all(data_dir());
             self.status.save(&data_dir().join("status.txt"));

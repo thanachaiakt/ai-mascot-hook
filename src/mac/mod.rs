@@ -76,8 +76,8 @@ struct App {
     y: i32,
     height: i32,
     strip: Strip,
-    /// the animation playing: the state's, or while editing, the edited state's
-    clip: &'static Clip,
+    /// the act playing: the state's, or while editing, the edited state's
+    turns: Turns,
     state: String,
     stamp: Option<SystemTime>,
     frame: usize,
@@ -90,6 +90,8 @@ struct App {
     /// when the bubble hides itself, with auto hide on
     hide_at: Option<Instant>,
     auto_hidden: bool,
+    /// the minute of the day last looked at for a break
+    minute: u32,
     /// when the bubble's next frame is due, while it is up or on its way out
     bubble_at: Option<Instant>,
 }
@@ -312,15 +314,24 @@ impl App {
         }
     }
 
-    /// Play the shown state's animation, if it is not playing already.
+    /// Play the shown state's act, if it is not playing already.
     fn sync_clip(&mut self) {
-        let clip = clip_for(self.shown_state());
-        if std::ptr::eq(clip, self.clip) {
+        let act = act_for(self.shown_state());
+        if std::ptr::eq(act, self.turns.act) {
             return;
         }
-        self.clip = clip;
+        let was = self.turns.clip();
+        self.turns.switch(act);
+        // a feed or a break playing goes on
+        if !std::ptr::eq(was, self.turns.clip()) {
+            self.play();
+        }
+    }
+
+    /// Start the clip whose turn it is, from its first frame.
+    fn play(&mut self) {
         self.strip.release();
-        self.strip = clip.strip();
+        self.strip = self.turns.clip().strip();
         trim_heap();
         self.frame = 0;
         self.draw_mascot();
@@ -347,6 +358,15 @@ impl App {
     }
 
     fn poll(&mut self) {
+        let minute = minute_of_day();
+        if minute != self.minute {
+            self.minute = minute;
+            if self.status.breaks.contains(&minute) && !self.turns.on_break() {
+                self.turns.cut_in(BREAK);
+                self.play();
+                self.update_bubble();
+            }
+        }
         let (state, stamp) = read_state();
         if stamp != self.stamp {
             // an empty read is a write still in progress: leave the stamp so the next poll retries
@@ -368,10 +388,16 @@ impl App {
     /// Everything that moves with time, run about 60 times a second.
     fn tick(&mut self) {
         let now = Instant::now();
-        if now.duration_since(self.frame_at).as_millis() as u32 >= self.clip.interval {
+        if now.duration_since(self.frame_at).as_millis() as u32 >= self.turns.clip().interval {
             self.frame_at = now;
             self.frame = (self.frame + 1) % self.strip.frames.max(1);
-            self.draw_mascot();
+            if self.frame == 0 && self.turns.looped() {
+                self.play();
+                // a scene's words come and go with its clips
+                self.update_bubble();
+            } else {
+                self.draw_mascot();
+            }
         }
         if now >= self.next_poll {
             self.next_poll = now + std::time::Duration::from_millis(POLL_MS as u64);
@@ -447,6 +473,11 @@ impl App {
             Press::Pending { .. } => {
                 if self.resize_mode {
                     self.set_resize_mode(false);
+                } else if self.turns.on_break() {
+                    // a click ends the break
+                    self.turns.end_cut_in();
+                    self.play();
+                    self.update_bubble();
                 } else {
                     self.toggle_menu();
                 }
@@ -471,6 +502,12 @@ impl App {
     fn set_resize_mode(&mut self, on: bool) {
         self.resize_mode = on;
         self.draw_mascot();
+        self.update_bubble();
+    }
+
+    fn feed(&mut self) {
+        self.turns.cut_in(FEED);
+        self.play();
         self.update_bubble();
     }
 
@@ -501,15 +538,25 @@ impl App {
             self.tag_win.orderOut(None);
             None
         };
-        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some()) && !self.menu.open;
+        // a break or a feed says its words whether or not the bubble is on
+        let scene = self.turns.scene().filter(|_| self.editor.is_none() && !self.resize_mode);
+        let visible = ((self.show_status && !self.auto_hidden) || self.resize_mode || self.editor.is_some() || scene.is_some()) && !self.menu.open;
         if !visible {
             self.bubble.hide();
             self.bubble_frame();
             return;
         }
-        let key = if self.resize_mode { "resize".to_string() } else { self.shown_state().to_string() };
+        let key = if self.resize_mode {
+            "resize".to_string()
+        } else if let Some(scene) = scene {
+            scene.to_string()
+        } else {
+            self.shown_state().to_string()
+        };
         let (text, dot) = if self.resize_mode {
             ("Scroll, Drag or Click".to_string(), None)
+        } else if let Some(scene) = scene {
+            (self.status.scene_text(scene).to_string(), Some(accent(scene)))
         } else if let Some(e) = &self.editor {
             // while editing, the bubble previews the state being edited, as typed and colored
             let i = e.draft.selected;
@@ -520,6 +567,7 @@ impl App {
         };
         let ink = match &self.editor {
             Some(e) => e.draft.colors[e.draft.selected],
+            None if scene.is_some() => DEFAULT_COLOR,
             None => self.status.color(&self.state),
         };
         let content = Content { text: &text, dot, ink, key: &key };
@@ -575,7 +623,7 @@ pub fn run() {
     // no word yet: forget the stamp so the first poll looks again
     let stamp = state.as_ref().and(stamp);
     let state = state.unwrap_or_default();
-    let clip = clip_for(&state);
+    let turns = Turns::new(act_for(&state));
     let mut seal = App {
         mtm,
         mascot,
@@ -601,8 +649,8 @@ pub fn run() {
         x: 0,
         y: 0,
         height: default_h,
-        strip: clip.strip(),
-        clip,
+        strip: turns.clip().strip(),
+        turns,
         state,
         stamp,
         frame: 0,
@@ -614,6 +662,7 @@ pub fn run() {
         status: StatusText::load(&data_dir().join("status.txt")),
         hide_at: None,
         auto_hidden: false,
+        minute: minute_of_day(),
         bubble_at: None,
     };
     match read_placement(default_h) {

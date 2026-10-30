@@ -1,25 +1,33 @@
 //! The words the status bubble says for each state, and their color.
 //!
 //! Kept in `%LOCALAPPDATA%\ai-mascot-hook\status.txt` as `key=value` lines:
-//! `loading`, `working`, `asking`, `completed`, `idle`, a text color for each as
-//! `color.<state>` (`#rrggbb`), and `autohide` (seconds the bubble stays up after each state
-//! change, 0 to keep it up). A plain `color`, from older versions, colors every state.
+//! `loading`, `working`, `asking`, `completed`, `error`, `idle`, a text color for each as
+//! `color.<state>` (`#rrggbb`), `autohide` (seconds the bubble stays up after each state
+//! change, 0 to keep it up), `break.times` (`12:00, 15:30`) and `break.message` for the
+//! break reminders, and `feed.message`, what the seal says as it eats. A plain `color`, from
+//! older versions, colors every state.
 
 use std::fs;
 use std::path::Path;
 
 use crate::gfx::Rgba;
 
-/// The states the bubble has words for, in the order the editor lists them.
-pub const STATES: [(&str, &str, &str); 5] = [
+/// The states the bubble has words for, in the order the editor lists them; idle last.
+pub const STATES: [(&str, &str, &str); 6] = [
     ("loading", "Thinking", "Thinking…"),
     ("working", "Working", "Working…"),
     ("asking", "Asking", "Need your input!"),
     ("completed", "Done", "All done!"),
+    ("error", "Error", "Something went wrong"),
     ("idle", "Idle", "Napping… zZ"),
 ];
 
 pub const DEFAULT_COLOR: Rgba = Rgba(24, 52, 110, 255);
+
+/// What the bubble says at break time, unless set.
+pub const DEFAULT_BREAK_MESSAGE: &str = "Time for a break!";
+/// What the bubble says while the seal eats, unless set.
+pub const DEFAULT_FEED_MESSAGE: &str = "Yum, thank you!";
 
 /// The longest the bubble may stay up before it hides itself, in seconds.
 pub const MAX_AUTOHIDE: u32 = 20;
@@ -37,21 +45,34 @@ pub const SWATCHES: [Rgba; 8] = [
 ];
 
 pub struct StatusText {
-    pub texts: [String; 5],
+    pub texts: [String; STATES.len()],
     /// each state's text color, in the order of `STATES`
-    pub colors: [Rgba; 5],
+    pub colors: [Rgba; STATES.len()],
     /// seconds the bubble stays up after each state change; 0 keeps it up
     pub autohide: u32,
+    /// the break times, in minutes since midnight, in order
+    pub breaks: Vec<u32>,
+    pub break_message: String,
+    pub feed_message: String,
 }
 
 impl StatusText {
     pub fn defaults() -> StatusText {
-        StatusText { texts: STATES.map(|(_, _, text)| text.to_string()), colors: [DEFAULT_COLOR; 5], autohide: 0 }
+        StatusText {
+            texts: STATES.map(|(_, _, text)| text.to_string()),
+            colors: [DEFAULT_COLOR; STATES.len()],
+            autohide: 0,
+            breaks: Vec::new(),
+            break_message: DEFAULT_BREAK_MESSAGE.to_string(),
+            feed_message: DEFAULT_FEED_MESSAGE.to_string(),
+        }
     }
 
     pub fn load(path: &Path) -> StatusText {
         let mut status = StatusText::defaults();
         if let Ok(file) = fs::read_to_string(path) {
+            // a file saved by hand may start with a BOM (PowerShell's Set-Content does)
+            let file = file.trim_start_matches('\u{feff}');
             for line in file.lines() {
                 let Some((key, value)) = line.split_once('=') else { continue };
                 let value = value.trim();
@@ -67,6 +88,16 @@ impl StatusText {
                 } else if let Some(state) = key.strip_prefix("color.") {
                     if let (Some(i), Some(c)) = (STATES.iter().position(|(k, _, _)| *k == state), parse_hex(value)) {
                         status.colors[i] = c;
+                    }
+                } else if key == "break.times" {
+                    status.breaks = parse_times(value);
+                } else if key == "break.message" {
+                    if !value.is_empty() {
+                        status.break_message = value.to_string();
+                    }
+                } else if key == "feed.message" {
+                    if !value.is_empty() {
+                        status.feed_message = value.to_string();
                     }
                 } else if key == "autohide" {
                     if let Ok(secs) = value.parse::<u32>() {
@@ -92,7 +123,21 @@ impl StatusText {
             out.push_str(&format!("color.{key}=#{:02x}{:02x}{:02x}\n", c.0, c.1, c.2));
         }
         out.push_str(&format!("autohide={}\n", self.autohide));
+        out.push_str(&format!("break.times={}\n", format_times(&self.breaks)));
+        out.push_str(&format!("break.message={}\n", self.break_message));
+        out.push_str(&format!("feed.message={}\n", self.feed_message));
         let _ = fs::write(path, out);
+    }
+
+    /// The words in the editor's boxes past the states': the break's times and message,
+    /// then what the seal says as it eats.
+    pub fn extras(&self) -> [String; 3] {
+        [format_times(&self.breaks), self.break_message.clone(), self.feed_message.clone()]
+    }
+
+    /// What the bubble says through a scene the seal plays (see `Turns::scene`).
+    pub fn scene_text(&self, scene: &str) -> &str {
+        if scene == "feed" { &self.feed_message } else { &self.break_message }
     }
 
     /// The words for `state`; anything unknown naps.
@@ -106,9 +151,30 @@ impl StatusText {
     }
 }
 
+/// The times in `text` (`12:00, 15:30`, `9:05 17:00`), as minutes since midnight, in order
+/// and once each. Anything that is not a time of day is left out.
+pub fn parse_times(text: &str) -> Vec<u32> {
+    let mut times: Vec<u32> = text
+        .split(|c: char| c == ',' || c == ';' || c.is_whitespace())
+        .filter_map(|t| {
+            let (h, m) = t.split_once([':', '.'])?;
+            let (h, m) = (h.parse::<u32>().ok()?, m.parse::<u32>().ok()?);
+            (h < 24 && m < 60).then_some(h * 60 + m)
+        })
+        .collect();
+    times.sort_unstable();
+    times.dedup();
+    times
+}
+
+/// Break times as the editor shows them and `status.txt` keeps them: `12:00, 15:30`.
+pub fn format_times(times: &[u32]) -> String {
+    times.iter().map(|t| format!("{}:{:02}", t / 60, t % 60)).collect::<Vec<_>>().join(", ")
+}
+
 /// Where `state` sits in `STATES`; anything unknown is idle.
 pub fn index(state: &str) -> usize {
-    STATES.iter().position(|(k, _, _)| *k == state).unwrap_or(4)
+    STATES.iter().position(|(k, _, _)| *k == state).unwrap_or(STATES.len() - 1)
 }
 
 /// The state word in the bytes of the state file, whatever wrote it: UTF-8 with or without
@@ -130,15 +196,12 @@ pub fn parse_state(bytes: &[u8]) -> Option<String> {
     Some(word)
 }
 
-/// The state words a hook may set.
-pub const STATE_WORDS: [&str; 5] = ["loading", "working", "asking", "completed", "idle"];
-
 /// Write `word` as the state file `dir\state`, as plain UTF-8, creating `dir` if needed.
 /// The word goes to a temporary file first and is then moved over the state file, so a
 /// reader never sees it half written.
 pub fn write_state(dir: &Path, word: &str) -> std::io::Result<()> {
     let word = word.trim().to_ascii_lowercase();
-    if !STATE_WORDS.contains(&word.as_str()) {
+    if !STATES.iter().any(|(k, _, _)| *k == word) {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("unknown state {word:?}")));
     }
     fs::create_dir_all(dir)?;
@@ -165,6 +228,9 @@ pub fn accent(state: &str) -> Rgba {
         "working" => Rgba(240, 162, 2, 255),
         "asking" => Rgba(226, 85, 122, 255),
         "completed" => Rgba(46, 158, 68, 255),
+        "error" => Rgba(220, 53, 53, 255),
+        "break" => Rgba(224, 123, 0, 255),
+        "feed" => Rgba(236, 112, 72, 255),
         _ => Rgba(154, 165, 177, 255),
     }
 }
@@ -238,6 +304,29 @@ mod tests {
 
     fn rgb(c: crate::gfx::Rgba) -> (u8, u8, u8) {
         (c.0, c.1, c.2)
+    }
+
+    #[test]
+    fn break_times() {
+        assert_eq!(super::parse_times("12:00, 15:30"), vec![720, 930]);
+        assert_eq!(super::parse_times("17:00 9.05;9:05"), vec![545, 1020]);
+        assert_eq!(super::parse_times("noon, 25:00, 12:60, 7"), Vec::<u32>::new());
+        assert_eq!(super::format_times(&[545, 1020]), "9:05, 17:00");
+        let dir = std::env::temp_dir().join(format!("ai-mascot-hook-breaks-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("status.txt");
+        let mut status = super::StatusText::defaults();
+        status.breaks = vec![720];
+        status.break_message = "Stretch!".into();
+        status.feed_message = "Yum!".into();
+        status.save(&path);
+        let again = super::StatusText::load(&path);
+        assert_eq!(again.breaks, vec![720]);
+        assert_eq!(again.break_message, "Stretch!");
+        assert_eq!(again.feed_message, "Yum!");
+        std::fs::write(&path, "\u{feff}break.times=9:00\r\n").unwrap();
+        assert_eq!(super::StatusText::load(&path).breaks, vec![540]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

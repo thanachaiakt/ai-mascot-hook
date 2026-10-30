@@ -67,13 +67,15 @@ impl App {
             // each text box sits borderless inside its painted field, centered on one line
             let line = canvas.measure(fonts.edit, "Ag").1 + 2;
             let inset = s(12.0);
+            // the states' boxes, then the break's and the feed's
+            let words = self.status.texts.iter().cloned().chain(self.status.extras());
             let mut edits = Vec::new();
-            for (i, f) in layout.fields.iter().enumerate() {
+            for (i, (f, words)) in layout.fields.iter().chain(&layout.extra_fields).zip(words).enumerate() {
                 let top = ((f.1 + f.3) / 2.0) as i32 - line / 2;
                 let edit = CreateWindowExW(
                     0,
                     wide("EDIT").as_ptr(),
-                    wide(&self.status.texts[i]).as_ptr(),
+                    wide(&words).as_ptr(),
                     WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL as u32,
                     f.0 as i32 + inset,
                     top,
@@ -137,11 +139,7 @@ impl App {
 
     pub(super) fn editor_focus(&mut self, focus: Option<usize>) {
         let Some(e) = self.editor.as_mut() else { return };
-        e.draft.focus = focus;
-        let moved = focus.is_some_and(|i| i != e.draft.selected);
-        if let Some(i) = focus {
-            e.draft.selected = i;
-        }
+        let moved = e.draft.focus_on(focus);
         unsafe { InvalidateRect(e.hwnd, null(), 0) };
         if moved {
             self.sync_clip();
@@ -185,8 +183,9 @@ impl App {
     pub(super) fn reset_editor(&mut self) {
         let defaults = StatusText::defaults();
         if let Some(e) = self.editor.as_mut() {
-            for (edit, text) in e.edits.iter().zip(defaults.texts.iter()) {
-                unsafe { SetWindowTextW(*edit, wide(text).as_ptr()) };
+            let words = defaults.texts.iter().cloned().chain(defaults.extras());
+            for (edit, text) in e.edits.iter().zip(words) {
+                unsafe { SetWindowTextW(*edit, wide(&text).as_ptr()) };
             }
             e.draft.colors = defaults.colors;
             unsafe { InvalidateRect(e.hwnd, null(), 1) };
@@ -197,7 +196,8 @@ impl App {
     pub(super) fn close_editor(&mut self, keep: bool) {
         let Some(e) = self.editor.take() else { return };
         if keep {
-            e.draft.commit(&mut self.status, std::array::from_fn(|i| window_text(e.edits[i])));
+            let extras = std::array::from_fn(|i| window_text(e.edits[EXTRAS + i]));
+            e.draft.commit(&mut self.status, std::array::from_fn(|i| window_text(e.edits[i])), extras);
             self.show_status = e.draft.show;
             let _ = fs::create_dir_all(data_dir());
             self.status.save(&data_dir().join("status.txt"));
@@ -254,7 +254,8 @@ pub(super) unsafe extern "system" fn editor_proc(hwnd: HWND, msg: u32, wp: WPARA
             let edit = lp as HWND;
             let found = with(|app| {
                 app.editor.as_ref().map(|e| {
-                    let ink = e.edits.iter().position(|h| *h == edit).map_or(INK, |i| e.draft.colors[i]);
+                    // the boxes past the states' keep the plain ink
+                    let ink = e.edits.iter().position(|h| *h == edit).and_then(|i| e.draft.colors.get(i).copied()).unwrap_or(INK);
                     (e.field_brush, ink)
                 })
             });

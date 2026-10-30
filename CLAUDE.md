@@ -12,10 +12,12 @@ Shared by both platforms:
 
 - `src/main.rs`: entry point. Handles `--set <state>`, `--install-hooks`,
   `--remove-hooks`, then runs `win::run()` or `mac::run()`.
-- `src/seal.rs`: size limits, timings, the clip for each state.
+- `src/seal.rs`: size limits, timings, each state's clips (`Act`, played in turn by
+  `Turns`), the feed and break scenes played over them (`CutIn`), and the local clock.
 - `src/store.rs`: data folder, state file (on Windows it also scans MSIX package
   folders), placement.
-- `src/status.rs`: the bubble's words, per-state colors and auto hide (`status.txt`),
+- `src/status.rs`: the bubble's words, per-state colors, auto hide, break times and the
+  break and feed messages (`status.txt`),
   and state-file parsing and writing.
 - `src/bubble.rs`: lays out, draws and animates the status bubble and the size readout.
   Platforms only show its canvases.
@@ -33,7 +35,11 @@ Per platform:
 - `src/mac/`: AppKit app (objc2), laid out the same way: `menu.rs` (icon menu panel),
   `editor.rs` (editor panel, NSTextFields, NSColorPanel).
 - `assets/`: frame strips. `build.rs` cuts each into one PNG per frame, embedded with
-  `include_bytes!`, so only the frame on screen is unpacked. `tools/`: art and hook scripts.
+  `include_bytes!`, so only the frame on screen is unpacked. `tools/`: art and hook scripts
+  (`video_states.py` and `video_poses.py` cut the strips from their clips, `clip_pose.py`
+  cuts the salmon's from a clip of its own, `sheet_pose.py` cuts a pose from a 4 x 4 sprite
+  sheet, `render_ui.py`
+  draws `menu.png`).
 - `installer/windows.iss` (Inno Setup, English and `installer/Thai.isl`) and `tools/install-mac.sh` are the release installers; both let the user pick the language and the AI agents to hook, and their uninstall removes every agent's hooks and the data folder.
   `.github/workflows/release.yml` builds them on a `v*` tag; the tag must match `Cargo.toml`'s version.
 

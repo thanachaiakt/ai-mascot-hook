@@ -142,6 +142,7 @@ impl App {
         self.close_menu();
         NSCursor::arrowCursor().set();
         match item {
+            Item::Feed => self.feed(),
             Item::Resize => self.set_resize_mode(true),
             Item::Status => self.toggle_status(),
             Item::Edit => self.open_editor(),

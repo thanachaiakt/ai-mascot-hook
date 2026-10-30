@@ -39,13 +39,15 @@ Measured on macOS (Apple M2 Pro) with `top`, sampling every 2 s:
 
 | State | Clip | CPU (one core) | Memory |
 |---|---|---|---|
-| `completed` / `idle` | napping, 86 frames | about 3–6% | 16–17 MB |
+| `idle` (napping) | napping, 86 frames | about 3–6% | 16–17 MB |
 | `asking` | waving, 60 frames | about 7–11% | 17 MB |
 | `loading` | clapping, 74 frames | about 7–10% | 17 MB |
 | `working` | swimming, 95 frames | about 10–12% | 17–19 MB |
 
 The figures move around between samples, so read them as rough ranges. Windows was not
-measured. Memory is `footprint`'s physical footprint, with the status bubble showing; the
+measured. They predate the sticker poses (thinking, sunglasses, crying and the idle
+poses), which were not measured; they play at the same rate from strips of 26–230 frames
+the same size, so they should cost about the same. Memory is `footprint`'s physical footprint, with the status bubble showing; the
 peak while switching states was 20 MB. Opening the status editor adds its window's memory
 (about 25 MB more while it is open).
 
@@ -65,7 +67,8 @@ Where the cost comes from:
 - **Status bubble:** while it moves (pops in, bounces, fades) it redraws every 15 ms,
   otherwise every 33 ms. Turning the bubble off saves this.
 - **Memory:** `build.rs` cuts each strip in `assets/` into one small PNG per frame, and
-  those are built into the exe (about 4 MB in all; the exe is about 4.8 MB). Embedded data
+  those are built into the exe (about 10.5 MB in all for the 12 strips; the exe is about
+  11.2 MB). Embedded data
   is mapped from the file and not counted as the app's own memory. Only the frame on
   screen is unpacked, one byte a pixel (260 × 260, about 66 KB), and the buffers are
   reused from frame to frame. Unpacking a whole strip up front, as earlier versions did,
