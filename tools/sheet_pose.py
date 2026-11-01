@@ -10,7 +10,7 @@ a little apart from cell to cell, so each is moved to stand where the first does
 on the same row, the middle of its base on the same column.
 
     assets/gif/<pose>.gif     300 x 300, transparent
-    assets/<pose>.png               the pet's strip: 260 x 260 frames, 256 colors with alpha
+    assets/<pose>.png               the pet's strip: 260 x 260 frames, 48 colors with alpha
 """
 import sys
 from pathlib import Path
@@ -19,6 +19,7 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
+from strip_palette import save_strip
 from video_poses import GIF, PAD, STRIP, WHITEN, save_gif, whiten
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -93,7 +94,7 @@ def build(sheet, name, ms):
     for n, q in enumerate(squares):
         strip.paste(q.resize((STRIP, STRIP), Image.LANCZOS).convert('RGBA'), (n * STRIP, 0))
     png = ROOT / 'assets' / f'{name}.png'
-    strip.quantize(colors=256, method=Image.Quantize.FASTOCTREE).save(png, optimize=True)
+    save_strip(strip, png)
     print(f'{path.relative_to(ROOT).as_posix()}: {side}px square, {len(squares)} frames of {ms} ms, '
           f'{path.stat().st_size // 1024} KB; strip {png.stat().st_size // 1024} KB')
 

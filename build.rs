@@ -64,6 +64,7 @@ fn main() {
             encoder.set_color(png::ColorType::Indexed);
             encoder.set_depth(png::BitDepth::Eight);
             encoder.set_compression(png::Compression::Best);
+            encoder.set_filter(png::FilterType::NoFilter);
             encoder.set_palette(palette.clone());
             if let Some(trns) = &trns {
                 encoder.set_trns(trns.clone());

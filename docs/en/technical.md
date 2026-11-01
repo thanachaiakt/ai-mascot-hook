@@ -100,7 +100,7 @@ Where the cost comes from:
   fixed-point sums worked out once per row and column, skipping the clear space around
   them. Turning the bubble off saves this.
 - **Memory:** `build.rs` cuts each strip in `assets/` into one small PNG per frame, and
-  those go into `ai-mascot-hook.frames` beside the exe (about 12.5 MB for the 12 strips;
+  those go into `ai-mascot-hook.frames` beside the exe (about 8.2 MB for the 12 strips;
   the exe is under 1 MB). The seal maps that file, so it is read from disk as needed and
   not counted as the app's own memory, as when the frames were in the exe. Only the frame on
   screen is unpacked, one byte a pixel (260 × 260, about 66 KB), and the buffers are

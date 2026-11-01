@@ -10,7 +10,7 @@ of the fur's gap to white stays (video_poses.py's 0.55 when left out), so less i
 Bubbles drifting off across the grid, away from the seal, are left out.
 
     assets/gif/<pose>.gif     300 x 300, the clip's own length, transparent
-    assets/<pose>.png               the pet's strip: 260 x 260 frames, every 2nd frame, 256 colors with alpha
+    assets/<pose>.png               the pet's strip: 260 x 260 frames, every 2nd frame, 48 colors with alpha
 """
 import subprocess
 import sys
@@ -21,6 +21,7 @@ from PIL import Image
 from scipy import ndimage
 
 from sheet_pose import cut
+from strip_palette import save_strip
 from video_poses import GIF, PAD, STEP, STRIP, WHITEN, save_gif
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -77,7 +78,7 @@ def build(src, name, keep):
     for n, q in enumerate(picked):
         strip.paste(q.resize((STRIP, STRIP), Image.LANCZOS).convert('RGBA'), (n * STRIP, 0))
     png = ROOT / 'assets' / f'{name}.png'
-    strip.quantize(colors=256, method=Image.Quantize.FASTOCTREE).save(png, optimize=True)
+    save_strip(strip, png)
     print(f'{path.relative_to(ROOT).as_posix()}: {side}px square, {len(squares)} frames, '
           f'{ends[-1] / 1000:.2f} s, {path.stat().st_size // 1024} KB; '
           f'strip {len(picked)} frames, {png.stat().st_size // 1024} KB')

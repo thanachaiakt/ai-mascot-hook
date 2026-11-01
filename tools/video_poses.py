@@ -14,7 +14,7 @@ clip, cutting off the white sticker edge there, so that edge is drawn back in. E
 the backdrop's own blue, stay whole.
 
     assets/gif/<pose>.gif     300 x 300, 25 fps, transparent
-    assets/<pose>.png               the pet's strip: 260 x 260 frames, every 2nd frame, 256 colors with alpha
+    assets/<pose>.png               the pet's strip: 260 x 260 frames, every 2nd frame, 48 colors with alpha
 """
 import subprocess
 import sys
@@ -24,6 +24,8 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 from scipy.spatial import Delaunay
+
+from strip_palette import save_strip
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'assets' / 'gif'
@@ -408,7 +410,7 @@ def build(v):
         for n, fr in enumerate(frames):
             strip.paste(fr, (n * STRIP, 0))
         png = ROOT / 'assets' / f'{name}.png'
-        strip.quantize(colors=256, method=Image.Quantize.FASTOCTREE).save(png, optimize=True)
+        save_strip(strip, png)
         print(f'{path.relative_to(ROOT).as_posix()}: clip frames {i}-{j - 1}, {side}px square, '
               f'{len(squares)} frames, {path.stat().st_size // 1024} KB; '
               f'strip {len(frames)} frames, {png.stat().st_size // 1024} KB')

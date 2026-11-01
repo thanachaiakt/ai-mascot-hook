@@ -7,7 +7,7 @@ it; the sleeping seal keeps its zZ; the swimmer gets back the tail the clip lose
 trimmed to a stretch that loops without a jump, cropped to a tight 1:1 square and written:
 
     assets/gif/<state>.gif       300 x 300, 12.5 fps, transparent
-    assets/<state>.png           the pet's strip: 260 x 260 frames, 256 colors with alpha
+    assets/<state>.png           the pet's strip: 260 x 260 frames, 48 colors with alpha
 """
 import subprocess
 import sys
@@ -20,6 +20,7 @@ from scipy import ndimage
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from seg import QUAD, cut  # noqa: E402
+from strip_palette import save_strip  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'art' / 'states.mp4'
@@ -129,7 +130,7 @@ def main():
             strip = Image.new('RGBA', (STRIP * len(frames), STRIP), (0, 0, 0, 0))
             for i, fr in enumerate(frames):
                 strip.paste(fr, (i * STRIP, 0))
-            strip.quantize(colors=256, method=Image.Quantize.FASTOCTREE).save(ROOT / 'assets' / f'{state}.png', optimize=True)
+            save_strip(strip, ROOT / 'assets' / f'{state}.png')
             kb = lambda p: p.stat().st_size // 1024
             print(f'{state}: clip frames {start}-{end}, {side}px square, '
                   f'{len(frames)} frames, {round(1000 * STEP / 24)} ms each; '
