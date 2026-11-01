@@ -4,6 +4,14 @@
 LanguageName=<0e44><0e17><0e22>
 LanguageID=$041E
 LanguageCodePage=874
+; The default Segoe UI has no Thai letters, so Windows borrows them from another font with
+; other metrics, and Thai comes out bigger or smaller than the Latin beside it (the hooks
+; page's memo, a rich edit, falls back furthest). Leelawadee UI, in every Windows 10, carries
+; Thai with Latin drawn to match Segoe UI.
+DialogFontName=Leelawadee UI
+DialogFontSize=9
+WelcomeFontName=Leelawadee UI
+WelcomeFontSize=12
 
 [Messages]
 SetupAppTitle=ติดตั้ง
