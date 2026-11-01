@@ -91,6 +91,11 @@ impl App {
     }
 
     fn draw_menu(&mut self) {
+        // a hover can still arrive after a click closed the menu; drawing it then would
+        // show the panel again, with nothing left to close it
+        if !self.menu.open {
+            return;
+        }
         let alpha = self.menu.draw();
         present(self.mtm, &self.menu_win, &self.menu.canvas, self.menu.at.0, self.menu.at.1, alpha, self.scale);
     }
