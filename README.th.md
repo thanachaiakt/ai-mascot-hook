@@ -164,6 +164,7 @@ Claude Code ไม่บังคับ (ถ้าไม่มี แมวน�
    โปรแกรมจะสำรอง `~\.claude\settings.json` ไว้เป็น `settings.json.bak-<เวลา>` ก่อน
    แล้วเพิ่ม hook ตามตารางด้านบน โดยเก็บ hook และค่าอื่นๆ ที่คุณมีอยู่ไว้ครบตามลำดับเดิม
    เพิ่มหรือแทนที่เฉพาะ hook ของ ai-mascot-hook เท่านั้น และบันทึกไฟล์เป็น JSON แบบย่อหน้า
+   ถ้ามี hook ครบและไม่มีอะไรเปลี่ยน โปรแกรมจะไม่แตะไฟล์และไม่สร้างไฟล์สำรอง
    (ถ้ามี repo อยู่ในเครื่อง ใช้
    `powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe <path>` แทนได้ ผลเหมือนกัน)
 4. **เปิด Claude Code ใหม่** ปิดแล้วเปิดใหม่ (หรือเปิด session ใหม่ใน Claude desktop app)

@@ -14,7 +14,8 @@
 //! yours that was already empty. Only our own entries are added, changed or removed.
 //! The file is rewritten as indented JSON (2 spaces, like Claude Code writes it), through a
 //! temporary file so a crash cannot leave half a settings file. The old file is saved beside it
-//! as `<name>.bak-<unix time>` first; a removal that finds nothing of ours leaves the file alone.
+//! as `<name>.bak-<unix time>` first; a removal that finds nothing of ours leaves the file alone,
+//! and so does an install that would change nothing.
 //! `--exe <path>` names the program the hooks run, for the Windows installer script, which has
 //! to hand over a path without spaces.
 
@@ -237,8 +238,14 @@ fn apply(agent: Agent, home: &Path, command: Option<&str>) -> Result<String, Str
     }
 
     let mut settings = read(&path)?;
+    let before = settings.clone();
     if !edit(&mut settings, agent, command)? {
         return Ok(format!("No ai-mascot-hook hooks in {}; nothing to remove.", path.display()));
+    }
+    // an update that installs the same hooks again changes nothing, and must not leave
+    // another backup behind each time
+    if command.is_some() && path.exists() && settings == before {
+        return Ok(format!("ai-mascot-hook hooks in {} are already up to date.", path.display()));
     }
     if path.exists() {
         let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);

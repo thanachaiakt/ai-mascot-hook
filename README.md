@@ -168,6 +168,7 @@ steps below.
    It backs up `~\.claude\settings.json` as `settings.json.bak-<time>`, adds the hooks from
    the table above, and keeps every other hook and setting you have, in the same order.
    Only ai-mascot-hook's own hooks are added or replaced; the file is saved as indented JSON.
+   If the hooks are already there and unchanged, the file is left alone and no backup is made.
    (From a clone of the repo, `powershell -ExecutionPolicy Bypass -File tools\install-hooks.ps1 -Exe <path>`
    does the same.)
 4. **Restart Claude Code.** A session that was open before the install does not run the

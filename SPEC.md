@@ -23,7 +23,8 @@ version. The exe
 carries the seal icon (`assets/icon.ico`, from `tools/make_icon.py`). Only the program's own
 hooks are added, replaced or removed: every other hook and setting stays, in its order.
 The file is rewritten as indented JSON after a `settings.json.bak-<time>` backup, and a
-removal that finds none of its hooks leaves the file alone.
+removal that finds none of its hooks leaves the file alone, as does an install whose hooks
+are already there (so each update does not add another backup).
 
 Other agents: `--install-hooks --agent <name>` (and `--remove-hooks --agent <name>`) does
 the same for `cursor` (`~/.cursor/hooks.json`), `copilot` (Copilot CLI, a file of its own,
