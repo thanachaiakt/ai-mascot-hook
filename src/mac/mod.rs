@@ -511,12 +511,12 @@ impl App {
     /// When `tick` next has something to do. The timer sleeps until then rather than
     /// ticking 60 times a second: most of those ticks did nothing but wake the CPU.
     fn next_tick(&self) -> Instant {
-        let now = Instant::now();
-        // the menu and the editor watch for losing the keyboard, which sends nothing here
-        if self.menu.open || self.editor.is_some() {
-            return now + Duration::from_millis(16);
-        }
         let mut due = self.next_poll.min(self.frame_at + Duration::from_millis(self.turns.clip().interval as u64));
+        // the menu and the editor watch for losing the keyboard, which sends nothing here; the
+        // frame keeps its own time, or it waits for the next of these checks and stutters
+        if self.menu.open || self.editor.is_some() {
+            due = due.min(Instant::now() + Duration::from_millis(16));
+        }
         if let Press::Pending { since, .. } = self.press {
             due = due.min(since + Duration::from_millis(HOLD_MS as u64));
         }
