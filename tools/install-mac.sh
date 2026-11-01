@@ -129,6 +129,9 @@ fi
 
 stop_seal
 mkdir -p "$HOME/bin" "$HOME/Library/LaunchAgents"
+# copying over the old binary keeps its inode, and macOS still holds the old code signature
+# for it, so the new one would be killed on launch: remove first, so the copy is a new file
+rm -f "$bin" "$frames"
 cp "$here/ai-mascot-hook" "$bin"
 cp "$here/ai-mascot-hook.frames" "$frames"
 chmod +x "$bin"
