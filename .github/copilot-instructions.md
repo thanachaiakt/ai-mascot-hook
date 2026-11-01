@@ -1,6 +1,6 @@
 # Copilot instructions for ai-mascot-hook
 
-Read `CLAUDE.md` for the project layout, commands and conventions; it applies to Copilot too.
+Read `AGENTS.md` for the project layout, commands and conventions; it applies to Copilot too.
 
 ## Commits
 

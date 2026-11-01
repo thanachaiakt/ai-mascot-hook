@@ -1,0 +1,96 @@
+# ai-mascot-hook
+
+A desktop seal (Windows and macOS) that plays an animation for the state Claude Code
+hooks write. `SPEC.md` is the behavior contract; `README.md` and `README.th.md` (Thai)
+are the user docs. `docs/en/` holds the English docs and `docs/th/` the same files in
+Thai: `architecture.md` diagrams how the modules connect (update it when modules or data
+flow change), `technical.md` gives measured token, CPU and memory costs.
+
+## Layout
+
+Shared by both platforms:
+
+- `src/main.rs`: entry point. Handles `--set <state>`, `--install-hooks`,
+  `--remove-hooks`, then runs `win::run()` or `mac::run()`.
+- `src/seal.rs`: size limits, timings, each state's clips (`Act`, played in turn by
+  `Turns`), the feed and break scenes played over them (`CutIn`), and the local clock.
+- `src/store.rs`: data folder, state file (on Windows it also scans MSIX package
+  folders), placement.
+- `src/status.rs`: the bubble's words, per-state colors, auto hide, break times and the
+  break and feed messages (`status.txt`),
+  and state-file parsing and writing.
+- `src/phrases.rs`: the English and Thai message sets the editor's **Starter messages** buttons
+  put in the boxes (ten lines a state, split by `|`), and the random pick of a line.
+- `src/bubble.rs`: lays out, draws and animates the status bubble and the size readout.
+  Windows shows its composited canvas; the Mac shows its parts as Core Animation layers
+  and takes only `Bubble::pose` from it, so the float and ripple run on the GPU.
+- `src/menu.rs`, `src/editor.rs`: the icon menu's and the settings editor's layout,
+  drawing and hit-testing, shared the same way. The editor's text boxes are native.
+- `src/hooks.rs`: edits the hook files of Claude Code, Cursor, Copilot CLI, Gemini CLI, Codex, Qwen Code, Windsurf and Kiro (`--agent`). Each agent's events are a `Plan`; add an agent as an `Agent` variant, its plan and its file, plus its box in `installer/windows.iss` and `Thai.isl`'s file list.
+- `src/anim.rs`: easing curves.
+- `src/gfx/mod.rs`: pixel `Canvas`, SDF shapes, `Strip`.
+
+Per platform:
+
+- `src/gfx/win.rs` and `src/gfx/mac.rs`: surface, text, and getting pixels on screen.
+- `src/win/`: Win32 app (`mod.rs`: seal window, pointer handling, bubble glue),
+  `menu.rs` (icon menu window), `editor.rs` (editor window, EDIT boxes, color dialog).
+- `src/mac/`: AppKit app (objc2), laid out the same way: `menu.rs` (icon menu panel),
+  `editor.rs` (editor panel, NSTextFields, NSColorPanel).
+- `assets/`: frame strips. `build.rs` cuts each into one PNG per frame, packed into
+  `ai-mascot-hook.frames` beside the exe (kept out of the exe so antivirus does not read it
+  as packed); `store::frames_file` maps it, so only the frame on screen is unpacked. `tools/`: art and hook scripts
+  (`video_states.py` and `video_poses.py` cut the strips from their clips, `clip_pose.py`
+  cuts the salmon's from a clip of its own, `sheet_pose.py` cuts a pose from a 4 x 4 sprite
+  sheet, all saving through `strip_palette.py`, which merges each strip's palette down to
+  48 colors; `render_ui.py` draws `menu.png`).
+- `installer/windows.iss` (Inno Setup, English and `installer/Thai.isl`) and `tools/install-mac.sh` are the release installers; both let the user pick the language and the AI agents to hook, and their uninstall removes every agent's hooks and the data folder.
+  `.github/workflows/release.yml` builds them on a `v*` tag; the tag must match `Cargo.toml`'s version.
+
+## Commands
+
+```bash
+cargo build --release                               # Windows exe: target/release/ai-mascot-hook.exe
+cargo test --release
+cargo check --target aarch64-apple-darwin           # Mac can only be compile-checked here
+cargo check --target x86_64-apple-darwin
+target/release/ai-mascot-hook.exe --set asking            # drive the running seal by hand
+```
+
+- Windows locks a running exe: run `Stop-Process -Name ai-mascot-hook` before a release build.
+  Relaunch it afterwards.
+- Every change must build warning-free on all three targets. Code used by only one
+  platform gets `#[cfg(...)]` or `#[cfg_attr(not(windows), allow(dead_code))]`.
+
+## Conventions and gotchas
+
+- Positions and sizes are pixels from the top left of the main screen on both platforms.
+  `ui`/`scale` is the display scale. The Mac converts to points only where it places a
+  window.
+- App state lives in a thread-local, reached through `with(|app| ...)`. Any call made
+  while the app is borrowed is dropped. This includes window messages sent from inside
+  a handler, a native menu or color dialog (they run their own loop), and `SetFocus`.
+  Do such calls outside `with`, or post a message (see `WM_APP_FOCUS`).
+- The bubble and seal art are pixel art on the seal's grid (`art_pixel`). The accent dot
+  is deliberately smooth.
+- The `working` clip is zoomed (`Clip::zoom`). `Strip::zoomed` grows the frames, and the
+  seal window gets transparent overhang so nothing is clipped. Hit-testing and placement
+  use the box, not the window (`in_box`, `overhang`).
+- Comments explain why, in plain sentences, at the density of the surrounding code.
+- When behavior changes, update `SPEC.md`, `README.md` and `README.th.md` together.
+
+## Commits and release notes
+
+Commit messages follow Conventional Commits with an English subject and a body in English
+then Thai; the rules, scopes and release-note template are
+in `docs/en/commit-convention.md` (Thai: `docs/th/`). Release notes for a tag are English
+then Thai, built from `git log <previous tag>..HEAD`; the `release-notes` skill does this.
+
+## Verifying UI changes on Windows
+
+Launch the exe and take screenshots with `System.Drawing` `CopyFromScreen`. Read the
+seal's position from `%LOCALAPPDATA%\ai-mascot-hook\placement`. To click inside the editor,
+post `WM_LBUTTONDOWN` from a DPI-aware process (`SetProcessDPIAware`); otherwise the
+coordinates get scaled and miss. `PostMessage(mascot, WM_APP+1, 1, 0)` opens the editor.
+If you change `status.txt` or `placement` while testing, back them up first and restore
+them afterwards: they are the user's settings.
